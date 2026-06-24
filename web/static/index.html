@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>邮箱简历收取 · 控制台</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -661,6 +664,43 @@ tr.clickable:hover { background: var(--bg-hover); }
 }
 .empty-state .icon { font-size: 2.4rem; margin-bottom: 12px; }
 .empty-state p { font-size: .88rem; }
+
+/* ── Allocation Row Edit Mode ─────────────────── */
+.alloc-row-edit td { background: var(--bg-elevated); vertical-align: middle; }
+.alloc-row-edit .form-input { background: #fff; border-color: var(--border-focus); }
+.alloc-row-actions { display: flex; gap: 6px; align-items: center; }
+.alloc-row-actions .btn-sm { font-size: .76rem; padding: 4px 10px; }
+
+/* 分配规则表格：固定列宽防止错位 */
+#page-allocation-rules table {
+  table-layout: fixed;
+}
+#page-allocation-rules th:nth-child(1),
+#page-allocation-rules td:nth-child(1) { width: 11%; }   /* 账号名称 */
+#page-allocation-rules th:nth-child(2),
+#page-allocation-rules td:nth-child(2) { width: 22%; }   /* 邮箱地址 */
+#page-allocation-rules th:nth-child(3),
+#page-allocation-rules td:nth-child(3) { width: 9%; }    /* 岗位编号 */
+#page-allocation-rules th:nth-child(4),
+#page-allocation-rules td:nth-child(4) { width: 28%; }   /* 租户ID */
+#page-allocation-rules th:nth-child(5),
+#page-allocation-rules td:nth-child(5) { width: 12%; }   /* 租户名 */
+#page-allocation-rules th:nth-child(6),
+#page-allocation-rules td:nth-child(6) { width: 18%; }   /* 操作 */
+#page-allocation-rules td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.alloc-read-val {
+  font-size: .84rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+.alloc-read-val.mono { font-family: var(--font-mono); font-size: .78rem; color: var(--text-secondary); }
+.alloc-read-val.empty { color: var(--text-muted); font-style: italic; }
 
 /* ── Responsive ─────────────────────────────────── */
 @media (max-width: 768px) {
@@ -1473,7 +1513,7 @@ function switchPage(name) {
   if (name === 'accounts') loadAccounts();
   if (name === 'records') loadRecordsPage();
   if (name === 'schedulers') loadSchedulers();
-  if (name === 'allocation-rules') loadAllocationRules();
+  if (name === 'allocation-rules') { loadAllocationRules().catch(e => toast('加载失败: ' + e.message, 'error')); }
   if (name === 'parser-settings') loadParserSettings();
   if (name === 'push-settings') loadPushSettings();
   if (name === 'parser') loadParser();
@@ -2044,9 +2084,8 @@ function configuredAccountNamesInTable() {
     if (tr.dataset.newRow) {
       const sel = tr.querySelector('[data-alloc-account]');
       if (sel?.value) names.add(sel.value);
-    } else {
-      const el = tr.querySelector('[data-job-name]');
-      if (el?.dataset.jobName) names.add(el.dataset.jobName);
+    } else if (tr.dataset.allocName) {
+      names.add(tr.dataset.allocName);
     }
   });
   return names;
@@ -2054,58 +2093,83 @@ function configuredAccountNamesInTable() {
 
 function accountsAvailableForNewRule(jobs) {
   const used = configuredAccountNamesInTable();
-  return jobs.filter(j => !hasAllocationRule(j) && !used.has(j.name));
+  // Return accounts not already in the table (including those with existing rules)
+  return jobs.filter(j => !used.has(j.name));
 }
 
 function renderConfiguredAllocationRow(j) {
+  const jobId = jobDisplayIdOf(j);
+  const tenantId = (j.tenant_id || '').trim();
+  const tenantCode = (j.tenant_code || '').trim();
   return `
-    <tr>
-      <td style="font-family:var(--font-mono);font-size:.78rem">${esc(j.name)}</td>
-      <td>${esc(j.username)}</td>
-      <td><input type="text" class="form-input" data-job-name="${esc(j.name)}" value="${esc(jobDisplayIdOf(j))}" placeholder="如 B042"></td>
-      <td><input type="text" class="form-input" data-tenant-id="${esc(j.name)}" value="${esc(j.tenant_id || '')}" placeholder="UUID"></td>
-      <td><input type="text" class="form-input" data-tenant-code="${esc(j.name)}" value="${esc(j.tenant_code || '')}" placeholder="租户名称"></td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteAllocationRule('${esc(j.name)}')">删除</button></td>
+    <tr data-alloc-name="${esc(j.name)}">
+      <td style="font-family:var(--font-mono);font-size:.78rem;font-weight:600">${esc(j.name)}</td>
+      <td class="alloc-read-val mono">${esc(j.username)}</td>
+      <td><span class="alloc-read-val mono ${jobId ? '' : 'empty'}">${esc(jobId || '未设置')}</span></td>
+      <td><span class="alloc-read-val mono ${tenantId ? '' : 'empty'}">${esc(tenantId || '未设置')}</span></td>
+      <td><span class="alloc-read-val ${tenantCode ? '' : 'empty'}">${esc(tenantCode || '未设置')}</span></td>
+      <td>
+        <div class="alloc-row-actions">
+          <button class="btn btn-ghost btn-sm" onclick="enterEditMode('${esc(j.name)}')">编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteAllocationRule('${esc(j.name)}')">删除</button>
+        </div>
+      </td>
     </tr>`;
 }
 
 function renderNewAllocationRow(available) {
   const first = available[0];
-  const options = available.map(j =>
-    `<option value="${esc(j.name)}" data-username="${esc(j.username)}">${esc(j.name)}</option>`
-  ).join('');
+  const options = available.map(j => {
+    const tag = hasAllocationRule(j) ? '（已配置）' : '';
+    return `<option value="${esc(j.name)}" data-username="${esc(j.username)}">${esc(j.name)}${tag}</option>`;
+  }).join('');
   return `
     <tr class="alloc-row-new" data-new-row="1">
       <td>
         <select class="form-input" data-alloc-account onchange="onAllocAccountChange(this)">${options}</select>
       </td>
       <td data-alloc-username>${esc(first.username)}</td>
-      <td><input type="text" class="form-input" data-alloc-job placeholder="如 B042"></td>
-      <td><input type="text" class="form-input" data-alloc-tenant-id placeholder="UUID"></td>
-      <td><input type="text" class="form-input" data-alloc-tenant-code placeholder="租户名称"></td>
+      <td><input type="text" class="form-input" data-alloc-job placeholder="如 B042" value="${esc(jobDisplayIdOf(first))}"></td>
+      <td><input type="text" class="form-input" data-alloc-tenant-id placeholder="UUID" value="${esc(first.tenant_id || '')}"></td>
+      <td><input type="text" class="form-input" data-alloc-tenant-code placeholder="租户名称" value="${esc(first.tenant_code || '')}"></td>
       <td><button class="btn btn-danger btn-sm" onclick="cancelNewAllocationRow(this)">删除</button></td>
     </tr>`;
 }
 
 async function loadAllocationRules() {
-  const jobs = await api('/api/jobs');
-  allocationRulesCache = jobs;
-  const tbody = document.getElementById('jobsBody');
-  const configured = jobs.filter(hasAllocationRule);
-  const pendingNew = allocationRowsInTable().filter(tr => tr.dataset.newRow);
-  if (!configured.length && !pendingNew.length) {
-    tbody.innerHTML = ALLOCATION_EMPTY_ROW;
-    return;
+  try {
+    const url = '/api/jobs';
+    console.log('[alloc] fetching', url);
+    const jobs = await api(url);
+    console.log('[alloc] got', jobs.length, 'jobs');
+    allocationRulesCache = jobs;
+    const tbody = document.getElementById('jobsBody');
+    const configured = jobs.filter(hasAllocationRule);
+    const pendingNew = allocationRowsInTable().filter(tr => tr.dataset.newRow);
+    if (!configured.length && !pendingNew.length) {
+      tbody.innerHTML = ALLOCATION_EMPTY_ROW;
+      return;
+    }
+    tbody.innerHTML = pendingNew.map(tr => tr.outerHTML).join('') + configured.map(renderConfiguredAllocationRow).join('');
+  } catch(e) {
+    console.error('[alloc] 加载失败:', e);
+    const tbody = document.getElementById('jobsBody');
+    if (tbody) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--error);padding:32px">加载失败: ' + esc(e.message) + '<br><small style="color:var(--text-muted)">请确认页面地址为 http://localhost:5100 （非本地文件）</small></td></tr>';
+    }
   }
-  tbody.innerHTML = pendingNew.map(tr => tr.outerHTML).join('') + configured.map(renderConfiguredAllocationRow).join('');
 }
 
 async function addAllocationRuleRow() {
   const jobs = allocationRulesCache.length ? allocationRulesCache : await api('/api/jobs');
   allocationRulesCache = jobs;
+  if (!jobs.length) {
+    alert('暂无邮箱账号，请先在「收取邮箱配置」页面添加邮箱账号。');
+    return;
+  }
   const available = accountsAvailableForNewRule(jobs);
   if (!available.length) {
-    toast('所有邮箱账号均已配置分配规则', 'error');
+    alert('所有邮箱账号均已在本表中，请直接点击对应行的「编辑」按钮修改配置。');
     return;
   }
   const tbody = document.getElementById('jobsBody');
@@ -2120,8 +2184,20 @@ async function addAllocationRuleRow() {
 function onAllocAccountChange(sel) {
   const opt = sel.selectedOptions[0];
   const tr = sel.closest('tr');
-  const cell = tr?.querySelector('[data-alloc-username]');
+  if (!tr) return;
+  const cell = tr.querySelector('[data-alloc-username]');
   if (cell) cell.textContent = opt?.dataset.username || '';
+  // Update input fields with the selected account's existing config
+  const name = sel.value;
+  const j = allocationRulesCache.find(a => a.name === name);
+  if (j) {
+    const jobInput = tr.querySelector('[data-alloc-job]');
+    const tenantIdInput = tr.querySelector('[data-alloc-tenant-id]');
+    const tenantCodeInput = tr.querySelector('[data-alloc-tenant-code]');
+    if (jobInput) jobInput.value = jobDisplayIdOf(j) || '';
+    if (tenantIdInput) tenantIdInput.value = j.tenant_id || '';
+    if (tenantCodeInput) tenantCodeInput.value = j.tenant_code || '';
+  }
 }
 
 function cancelNewAllocationRow(btn) {
@@ -2144,34 +2220,94 @@ async function deleteAllocationRule(name) {
   }
 }
 
+// ── Inline Edit Mode ──────────────────────────────
+function enterEditMode(name) {
+  const tr = document.querySelector(`tr[data-alloc-name="${CSS.escape(name)}"]`);
+  if (!tr) return;
+  const j = allocationRulesCache.find(a => a.name === name);
+  if (!j) return;
+
+  tr.classList.add('alloc-row-edit');
+  tr.innerHTML = `
+    <td style="font-family:var(--font-mono);font-size:.78rem;font-weight:600">${esc(j.name)}</td>
+    <td class="alloc-read-val mono">${esc(j.username)}</td>
+    <td><input type="text" class="form-input alloc-edit-job" value="${esc(jobDisplayIdOf(j))}" placeholder="如 B042"></td>
+    <td><input type="text" class="form-input alloc-edit-tenant-id" value="${esc(j.tenant_id || '')}" placeholder="UUID"></td>
+    <td><input type="text" class="form-input alloc-edit-tenant-code" value="${esc(j.tenant_code || '')}" placeholder="租户名称"></td>
+    <td>
+      <div class="alloc-row-actions">
+        <button class="btn btn-success btn-sm" onclick="saveAllocationRuleRow('${esc(name)}')">保存</button>
+        <button class="btn btn-ghost btn-sm" onclick="cancelEditMode('${esc(name)}')">取消</button>
+      </div>
+    </td>`;
+  // Auto-focus first input
+  tr.querySelector('.alloc-edit-job')?.focus();
+}
+
+function cancelEditMode(name) {
+  // Re-render the row back to read-only mode (discard changes)
+  const j = allocationRulesCache.find(a => a.name === name);
+  if (!j) return;
+  const tr = document.querySelector(`tr[data-alloc-name="${CSS.escape(name)}"]`);
+  if (!tr) return;
+  tr.outerHTML = renderConfiguredAllocationRow(j);
+}
+
+async function saveAllocationRuleRow(name) {
+  const tr = document.querySelector(`tr.alloc-row-edit[data-alloc-name="${CSS.escape(name)}"]`);
+  if (!tr) return;
+  const job_display_id = tr.querySelector('.alloc-edit-job')?.value.trim() || '';
+  const tenant_id = tr.querySelector('.alloc-edit-tenant-id')?.value.trim() || '';
+  const tenant_code = tr.querySelector('.alloc-edit-tenant-code')?.value.trim() || '';
+
+  if (!job_display_id && !tenant_id && !tenant_code) {
+    toast('请至少填写一项：岗位编号、租户ID 或 租户名', 'error');
+    return;
+  }
+
+  try {
+    await api('/api/jobs', { method: 'PUT', body: JSON.stringify({
+      jobs: [{ name, job_display_id, tenant_id, tenant_code }]
+    })});
+    toast('规则已保存', 'success');
+    // Update cache so re-render picks up new values
+    const idx = allocationRulesCache.findIndex(a => a.name === name);
+    if (idx >= 0) {
+      allocationRulesCache[idx].job_display_id = job_display_id;
+      allocationRulesCache[idx].tenant_id = tenant_id;
+      allocationRulesCache[idx].tenant_code = tenant_code;
+    }
+    await loadAllocationRules();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
 async function saveJobs() {
   const jobs = [];
 
+  // Only process newly-added unsaved rows (data-new-row)
+  // Already-configured rows are now saved via per-row edit mode
   for (const tr of allocationRowsInTable()) {
-    if (tr.dataset.newRow) {
-      const name = tr.querySelector('[data-alloc-account]')?.value?.trim();
-      if (!name) continue;
-      const job_display_id = tr.querySelector('[data-alloc-job]')?.value.trim() || '';
-      const tenant_id = tr.querySelector('[data-alloc-tenant-id]')?.value.trim() || '';
-      const tenant_code = tr.querySelector('[data-alloc-tenant-code]')?.value.trim() || '';
-      if (!job_display_id && !tenant_id && !tenant_code) {
-        toast(`请完善账号「${name}」的分配规则`, 'error');
-        return;
-      }
-      jobs.push({ name, job_display_id, tenant_id, tenant_code });
-      continue;
+    if (!tr.dataset.newRow) continue; // skip read-only configured rows
+    const name = tr.querySelector('[data-alloc-account]')?.value?.trim();
+    if (!name) continue;
+    const job_display_id = tr.querySelector('[data-alloc-job]')?.value.trim() || '';
+    const tenant_id = tr.querySelector('[data-alloc-tenant-id]')?.value.trim() || '';
+    const tenant_code = tr.querySelector('[data-alloc-tenant-code]')?.value.trim() || '';
+    if (!job_display_id && !tenant_id && !tenant_code) {
+      toast(`请完善账号「${name}」的分配规则`, 'error');
+      return;
     }
-    const el = tr.querySelector('[data-job-name]');
-    if (!el) continue;
-    const name = el.dataset.jobName;
-    const tenantIdEl = tr.querySelector(`[data-tenant-id="${CSS.escape(name)}"]`);
-    const tenantCodeEl = tr.querySelector(`[data-tenant-code="${CSS.escape(name)}"]`);
-    jobs.push({
-      name,
-      job_display_id: el.value.trim(),
-      tenant_id: tenantIdEl ? tenantIdEl.value.trim() : '',
-      tenant_code: tenantCodeEl ? tenantCodeEl.value.trim() : '',
-    });
+    jobs.push({ name, job_display_id, tenant_id, tenant_code });
+  }
+
+  // Also save any row currently in edit mode
+  const editTr = document.querySelector('tr.alloc-row-edit[data-alloc-name]');
+  if (editTr) {
+    const name = editTr.dataset.allocName;
+    toast(`账号「${name}」正在编辑中，请先点击该行的「保存」或「取消」`, 'error');
+    return;
   }
 
   try {
