@@ -1347,10 +1347,11 @@ tr.clickable:hover { background: var(--bg-hover); }
           <label class="form-label">邮箱目录</label>
           <input type="text" class="form-input" id="acctMailbox" value="INBOX">
         </div>
-        <div class="form-group">
+        <div class="form-group" id="acctDownloadGroup" style="display:none">
           <label class="form-label">下载路径</label>
           <input type="text" class="form-input" id="acctDownload" placeholder="如 /Users/admin/Desktop/resume">
         </div>
+        <p id="acctDownloadHint" style="font-size:.78rem;color:var(--text-muted);margin-top:4px"></p>
       </div>
     </div>
     <div class="modal-footer">
@@ -1695,8 +1696,8 @@ function onAcctHostInput() {
   }
 }
 
-async function suggestImapForAccount() {
-  if (currentEditAccount) return;
+async function suggestImapForAccount(force = false) {
+  if (currentEditAccount && !force) return;
   const email = document.getElementById('acctUsername').value.trim();
   if (!email.includes('@')) return;
 
@@ -1737,14 +1738,24 @@ function openAccountModal(acct = null) {
     document.getElementById('acctPassword').value = '';
     document.getElementById('acctSSL').value = String(acct.imap_ssl);
     document.getElementById('acctMailbox').value = acct.mailbox;
-    document.getElementById('acctDownload').value = acct.download_path;
   } else {
-    ['acctName','acctUsername','acctHost','acctPassword','acctDownload'].forEach(id => document.getElementById(id).value = '');
+    ['acctName','acctUsername','acctHost','acctPassword'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('acctPort').value = '993';
     document.getElementById('acctSSL').value = 'true';
     document.getElementById('acctMailbox').value = 'INBOX';
   }
+  loadAccountDownloadHint();
   openModal('accountModal');
+}
+
+async function loadAccountDownloadHint() {
+  const el = document.getElementById('acctDownloadHint');
+  try {
+    const res = await api('/api/accounts/default-download-path');
+    el.textContent = res.path ? `附件将自动保存至：${res.path}` : '';
+  } catch (_) {
+    el.textContent = '';
+  }
 }
 
 async function editAccount(name) {
@@ -1754,6 +1765,9 @@ async function editAccount(name) {
 }
 
 async function saveAccount() {
+  if (!currentEditAccount) {
+    await suggestImapForAccount(true);
+  }
   const data = {
     name: document.getElementById('acctName').value.trim(),
     imap_host: document.getElementById('acctHost').value.trim(),
@@ -1762,9 +1776,8 @@ async function saveAccount() {
     username: document.getElementById('acctUsername').value.trim(),
     password: document.getElementById('acctPassword').value,
     mailbox: document.getElementById('acctMailbox').value.trim() || 'INBOX',
-    download_path: document.getElementById('acctDownload').value.trim(),
   };
-  if (!data.name || !data.imap_host || !data.username || !data.download_path) {
+  if (!data.name || !data.imap_host || !data.username) {
     toast('请填写必填字段', 'error'); return;
   }
   if (currentEditAccount && !data.password) {

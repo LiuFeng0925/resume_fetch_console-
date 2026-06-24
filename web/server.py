@@ -208,6 +208,19 @@ def _save_yaml(data: dict) -> None:
     )
 
 
+def _default_download_path(data: dict) -> str:
+    """新账号默认下载目录：优先 parser.input_path，其次已有账号的 download.path。"""
+    parser = data.get("parser") or {}
+    input_path = str(parser.get("input_path") or "").strip()
+    if input_path:
+        return input_path
+    for acct in data.get("accounts", []):
+        path = str((acct.get("download") or {}).get("path") or "").strip()
+        if path:
+            return path
+    return "/Users/admin/Desktop/resume"
+
+
 def _db_conn() -> sqlite3.Connection:
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
@@ -291,6 +304,13 @@ def imap_suggest():
     return jsonify({"ok": True, **result})
 
 
+@app.route("/api/accounts/default-download-path", methods=["GET"])
+def default_download_path():
+    """返回新账号默认附件下载目录。"""
+    data = _load_yaml()
+    return jsonify({"path": _default_download_path(data)})
+
+
 @app.route("/api/accounts", methods=["GET"])
 def list_accounts():
     """获取所有邮箱账号配置"""
@@ -326,7 +346,7 @@ def list_accounts():
 def add_account():
     """添加邮箱账号"""
     body = request.json or {}
-    required = ["name", "imap_host", "username", "password", "download_path"]
+    required = ["name", "imap_host", "username", "password"]
     for k in required:
         if not body.get(k):
             return jsonify({"error": f"缺少必填字段: {k}"}), 400
@@ -335,6 +355,8 @@ def add_account():
     names = [a["name"] for a in data.get("accounts", [])]
     if body["name"] in names:
         return jsonify({"error": f"账号名已存在: {body['name']}"}), 400
+
+    download_path = str(body.get("download_path") or "").strip() or _default_download_path(data)
 
     new_acct = {
         "name": body["name"],
@@ -346,7 +368,7 @@ def add_account():
             "password": body["password"],
         },
         "mailbox": body.get("mailbox", "INBOX"),
-        "download": {"path": body["download_path"]},
+        "download": {"path": download_path},
         "tenant_id": str(body.get("tenant_id") or "").strip(),
         "tenant_code": str(body.get("tenant_code") or "").strip(),
     }
@@ -378,8 +400,10 @@ def update_account(name: str):
                 acct["imap"]["password"] = body["password"]
             if "mailbox" in body:
                 acct["mailbox"] = body["mailbox"]
-            if "download_path" in body:
-                acct["download"]["path"] = body["download_path"]
+            if "download_path" in body and str(body["download_path"] or "").strip():
+                acct.setdefault("download", {})["path"] = body["download_path"]
+            elif not str((acct.get("download") or {}).get("path") or "").strip():
+                acct.setdefault("download", {})["path"] = _default_download_path(data)
             if "job_display_id" in body or "job_id" in body:
                 write_account_job_display_id(
                     acct,
