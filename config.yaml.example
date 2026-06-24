@@ -1,0 +1,65 @@
+# 邮箱简历抓取 — 配置文件示例
+# 复制为 config.yaml 后修改即可（config.yaml 已在 .gitignore，不会提交到 git）
+#   cp config.yaml.example config.yaml
+#
+# 推荐：授权码直接写在 imap.password；也可用 imap.password_env 从环境变量读取
+
+accounts:
+  - name: hr-boss
+    job_id: TA-2026-001
+    imap:
+      host: imap.exmail.qq.com
+      port: 993
+      ssl: true
+      username: hr@company.com
+      password: 在此填写IMAP授权码
+    mailbox: INBOX
+    download:
+      path: /Users/liufeng/Documents/项目/重构 2.0/附件简历合集
+
+  # 多邮箱时复制下面块，改 name / imap / download
+  # - name: recruiter-2
+  #   imap:
+  #     host: imap.exmail.qq.com
+  #     port: 993
+  #     ssl: true
+  #     username: recruiter2@company.com
+  #     password: 第二个邮箱的授权码
+  #   mailbox: INBOX
+  #   download:
+  #     path: /Users/liufeng/Documents/项目/重构 2.0/附件简历合集/recruiter2
+
+subject_patterns:
+  - ".*应聘.*【BOSS直聘】"
+  - ".*应聘.*"
+
+attachment_extensions:
+  - ".pdf"
+
+state:
+  db_path: ./data/processed.db
+
+log:
+  path: ./logs/resume-fetch.log
+
+parser:
+  input_path: /Users/admin/Desktop/resume
+  output_path: /Users/admin/Desktop/resume-output
+  archive_path: /Users/admin/Desktop/resume-parsed
+  recursive: false
+  ark_api_key: ""
+  ark_base_url: https://openrouter.ai/api/v1
+  model: deepseek/deepseek-chat-v3-0324
+  concurrency: 5
+  request_timeout: 60
+  max_retries: 3
+  file_attempts: 3
+  text_truncate: 6000
+push:
+  enabled: false
+  api_url: http://127.0.0.1:8000/open/candidates/import
+  bearer_token: local-internal-token
+  timeout: 60
+  success_status_codes:
+  - 200
+  - 201

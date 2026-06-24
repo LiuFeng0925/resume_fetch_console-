@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.venv-workbuddy/
+venv/
+.workbuddy/
+config.yaml
+data/
+logs/
+downloads/
+*.db
+.DS_Store

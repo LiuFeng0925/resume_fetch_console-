@@ -1,0 +1,3013 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>邮箱简历收取 · 控制台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── Design Tokens ─────────────────────────────── */
+:root {
+  --bg-base: #f0f2f5;
+  --bg-surface: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-hover: #f5f7fa;
+  --bg-active: #e8ecf1;
+  --border: #e2e5ea;
+  --border-focus: #4f7af0;
+  --text-primary: #1a1d26;
+  --text-secondary: #5a6072;
+  --text-muted: #9aa0b0;
+  --accent: #4f7af0;
+  --accent-hover: #3b65e0;
+  --accent-muted: rgba(79,122,240,.10);
+  --accent-glow: rgba(79,122,240,.20);
+  --success: #0d9f6e;
+  --success-muted: rgba(13,159,110,.10);
+  --warning: #e09e00;
+  --warning-muted: rgba(224,158,0,.10);
+  --danger: #dc4446;
+  --danger-muted: rgba(220,68,70,.10);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.10);
+  --transition: 180ms cubic-bezier(.4,0,.2,1);
+}
+
+/* ── Reset ──────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; -webkit-font-smoothing: antialiased; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+a { color: var(--accent); text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, select, textarea { font-family: inherit; color: inherit; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Layout ─────────────────────────────────────── */
+.app { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 240px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+}
+.main {
+  flex: 1;
+  margin-left: 240px;
+  padding: 32px 40px;
+  max-width: 1200px;
+}
+
+/* ── Sidebar ────────────────────────────────────── */
+.sidebar-brand {
+  padding: 24px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-brand h1 {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--text-primary);
+}
+.sidebar-brand span {
+  font-size: .72rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  letter-spacing: .04em;
+}
+.sidebar-nav { padding: 12px 10px; flex: 1; overflow-y: auto; }
+.nav-group { margin-bottom: 16px; }
+.nav-group:last-child { margin-bottom: 0; }
+.nav-group-label {
+  padding: 4px 14px 8px;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: .88rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--transition);
+  width: 100%;
+  text-align: left;
+}
+.nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.nav-item.active {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+.nav-icon {
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+.sidebar-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+.run-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .78rem;
+  color: var(--text-muted);
+}
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+.status-dot.idle { background: var(--text-muted); }
+.status-dot.running { background: var(--warning); animation: pulse 1.2s infinite; }
+.status-dot.error { background: var(--danger); }
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--warning); }
+  50% { opacity: .7; box-shadow: 0 0 0 4px rgba(251,191,36,.2); }
+}
+
+/* ── Page Header ────────────────────────────────── */
+.page-header {
+  margin-bottom: 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -.03em;
+}
+.page-desc {
+  color: var(--text-secondary);
+  font-size: .88rem;
+  margin-top: 4px;
+}
+
+/* ── Cards ──────────────────────────────────────── */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.card-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.card-header h3 {
+  font-size: .92rem;
+  font-weight: 600;
+}
+.card-body { padding: 20px 22px; }
+
+/* ── Buttons ────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: .84rem;
+  font-weight: 600;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover { background: var(--accent-hover); box-shadow: 0 2px 12px var(--accent-glow); }
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-focus); }
+.btn-danger {
+  background: var(--danger-muted);
+  color: var(--danger);
+}
+.btn-danger:hover { background: rgba(248,113,113,.2); }
+.btn-success {
+  background: var(--success-muted);
+  color: var(--success);
+}
+.btn-success:hover { background: rgba(52,211,153,.2); }
+.btn-sm { padding: 5px 10px; font-size: .78rem; }
+.btn:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+
+/* ── Form ───────────────────────────────────────── */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-label {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+.form-input {
+  padding: 9px 12px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: .88rem;
+  transition: all var(--transition);
+  outline: none;
+}
+.form-input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+.form-input::placeholder { color: var(--text-muted); }
+select.form-input { appearance: none; cursor: pointer; }
+
+/* ── Account Cards ──────────────────────────────── */
+.account-list { display: flex; flex-direction: column; gap: 12px; }
+.account-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px 22px;
+  transition: all var(--transition);
+}
+.account-card:hover { border-color: var(--border-focus); }
+.account-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.account-name {
+  font-weight: 700;
+  font-size: .95rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.account-name .icon { font-size: 1.1rem; }
+.account-badge {
+  font-size: .68rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-family: var(--font-mono);
+}
+.badge-connected {
+  background: var(--success-muted);
+  color: var(--success);
+}
+.badge-watermark {
+  background: var(--accent-muted);
+  color: var(--accent);
+  margin-left: 8px;
+}
+.account-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+.meta-item {
+  font-size: .78rem;
+  color: var(--text-secondary);
+}
+.meta-item span { color: var(--text-primary); font-family: var(--font-mono); font-size: .76rem; }
+.account-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Stats Bar ──────────────────────────────────── */
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+}
+.stat-label { font-size: .72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.stat-value { font-size: 1.6rem; font-weight: 700; font-family: var(--font-mono); margin-top: 2px; }
+.stat-value.accent { color: var(--accent); }
+.stat-value.success { color: var(--success); }
+.stat-value.warning { color: var(--warning); }
+
+/* ── Sync Banner ────────────────────────────────── */
+.sync-banner {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 22px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.sync-info { display: flex; align-items: center; gap: 12px; }
+.sync-status {
+  font-size: .88rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sync-status .dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sync-status .dot.idle { background: var(--text-muted); }
+.sync-status .dot.running { background: var(--warning); animation: pulse 1s infinite; }
+.sync-status .dot.error { background: var(--danger); }
+.sync-detail { font-size: .78rem; color: var(--text-muted); margin-top: 2px; }
+.sync-actions { display: flex; gap: 8px; }
+
+/* ── Table ──────────────────────────────────────── */
+.table-wrap { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .84rem;
+}
+th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+tr:hover td { background: var(--bg-hover); }
+td.subject { color: var(--text-primary); font-weight: 500; max-width: 360px; }
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: .72rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+.tag-matched { background: var(--success-muted); color: var(--success); }
+.tag-skipped { background: var(--bg-hover); color: var(--text-muted); }
+
+/* ── Pagination ─────────────────────────────────── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  font-size: .82rem;
+  color: var(--text-muted);
+}
+.page-btns { display: flex; gap: 4px; }
+.page-btn {
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  font-size: .78rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  transition: all var(--transition);
+}
+.page-btn:hover { border-color: var(--border-focus); color: var(--text-primary); }
+.page-btn.active { background: var(--accent-muted); color: var(--accent); border-color: transparent; }
+
+.th-select-all {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-weight: 500;
+  font-size: .68rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.th-select-all input { cursor: pointer; margin: 0; }
+
+/* ── Parse Detail ───────────────────────────────── */
+.detail-section { margin-bottom: 18px; }
+.detail-section h4 { font-size: .82rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+.detail-grid { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; font-size: .84rem; }
+.detail-grid .label { color: var(--text-muted); }
+.detail-item-card { background: var(--bg-base); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 8px; }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover { background: var(--bg-hover); }
+
+/* ── Progress Bar ───────────────────────────────── */
+.progress-wrap { margin-top: 12px; }
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: .82rem;
+  margin-bottom: 8px;
+}
+.progress-meta .count {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.progress-meta .pct { color: var(--accent); font-family: var(--font-mono); font-weight: 600; }
+.progress-track {
+  height: 8px;
+  background: var(--bg-base);
+  border-radius: 99px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #6b9af5);
+  border-radius: 99px;
+  width: 0%;
+  transition: width .4s ease;
+}
+.progress-stats {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  font-size: .78rem;
+  color: var(--text-secondary);
+}
+.progress-stats span { font-family: var(--font-mono); }
+
+.parse-active-wrap {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.parse-thinking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .78rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.thinking-dots {
+  display: inline-flex;
+  gap: 3px;
+  width: 18px;
+}
+.thinking-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: thinking-bounce 1.2s ease-in-out infinite;
+}
+.thinking-dots span:nth-child(2) { animation-delay: .15s; }
+.thinking-dots span:nth-child(3) { animation-delay: .3s; }
+@keyframes thinking-bounce {
+  0%, 80%, 100% { opacity: .25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-3px); }
+}
+.parse-active-files { display: flex; flex-direction: column; gap: 4px; }
+.parse-active-line {
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Modal ──────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.35);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all .2s ease;
+}
+.modal-overlay.open { opacity: 1; visibility: visible; }
+.modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: 520px;
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(10px);
+  transition: transform .2s ease;
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-header h3 { font-size: 1rem; font-weight: 700; }
+.modal-close {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-sm);
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  transition: all var(--transition);
+}
+.modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+.modal-body { padding: 22px; }
+.modal-footer {
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ── Scheduler ──────────────────────────────────── */
+.scheduler-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.toggle {
+  position: relative;
+  width: 44px; height: 24px;
+  cursor: pointer;
+}
+.toggle input { display: none; }
+.toggle-track {
+  width: 100%; height: 100%;
+  background: var(--bg-active);
+  border-radius: 12px;
+  transition: all var(--transition);
+}
+.toggle input:checked + .toggle-track { background: var(--accent); }
+.toggle-thumb {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 18px; height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: all var(--transition);
+  pointer-events: none;
+}
+.toggle input:checked ~ .toggle-thumb { left: 23px; }
+
+/* ── Filter Bar ─────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.filter-bar .form-input { width: auto; min-width: 160px; }
+.filter-bar input[type="date"] { min-width: 132px; }
+.filter-bar .date-sep { color: var(--text-muted); font-size: .78rem; }
+
+/* ── Toast ──────────────────────────────────────── */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  font-size: .84rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-md);
+  animation: slideIn .25s ease;
+  max-width: 360px;
+}
+.toast-success { background: #e8f5ee; color: var(--success); border: 1px solid rgba(13,159,110,.25); }
+.toast-error { background: #fce8e8; color: var(--danger); border: 1px solid rgba(220,68,70,.25); }
+.toast-info { background: #eef2fd; color: var(--accent); border: 1px solid rgba(79,122,240,.25); }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* ── Empty State ────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-muted);
+}
+.empty-state .icon { font-size: 2.4rem; margin-bottom: 12px; }
+.empty-state p { font-size: .88rem; }
+
+/* ── Responsive ─────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .main { margin-left: 0; padding: 20px 16px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .stats-bar { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <h1>📬 邮箱简历收取</h1>
+      <span>Resume Fetch Console</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">邮箱收取</div>
+        <button class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">
+          <span class="nav-icon">📊</span> 控制面板
+        </button>
+        <button class="nav-item" data-page="records" onclick="switchPage('records')">
+          <span class="nav-icon">📋</span> 收取记录
+        </button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">简历解析</div>
+        <button class="nav-item" data-page="parser" onclick="switchPage('parser')">
+          <span class="nav-icon">🧠</span> 简历解析
+        </button>
+        <button class="nav-item" data-page="parse-records" onclick="switchPage('parse-records')">
+          <span class="nav-icon">📑</span> 解析记录
+        </button>
+        <button class="nav-item" data-page="push-records" onclick="switchPage('push-records')">
+          <span class="nav-icon">📤</span> 推送记录
+        </button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">设置</div>
+        <button class="nav-item" data-page="accounts" onclick="switchPage('accounts')">
+          <span class="nav-icon">📧</span> 收取邮箱配置
+        </button>
+        <button class="nav-item" data-page="allocation-rules" onclick="switchPage('allocation-rules')">
+          <span class="nav-icon">🏷️</span> 分配规则配置
+        </button>
+        <button class="nav-item" data-page="parser-settings" onclick="switchPage('parser-settings')">
+          <span class="nav-icon">🛠️</span> 简历解析配置
+        </button>
+        <button class="nav-item" data-page="schedulers" onclick="switchPage('schedulers')">
+          <span class="nav-icon">⏱️</span> 定时任务设置
+        </button>
+        <button class="nav-item" data-page="push-settings" onclick="switchPage('push-settings')">
+          <span class="nav-icon">🔗</span> 推送接口配置
+        </button>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="run-status">
+        <span class="status-dot idle" id="sidebarDot"></span>
+        <span id="sidebarStatus">等待执行</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- ═══ Dashboard ═══ -->
+    <div id="page-dashboard" class="page">
+      <div class="page-header">
+        <div>
+          <h2 class="page-title">控制面板</h2>
+          <p class="page-desc">邮箱简历收取实时状态</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="triggerSync()" id="syncBtn">
+            ▶ 手动同步
+          </button>
+        </div>
+      </div>
+
+      <!-- Sync Banner -->
+      <div class="sync-banner">
+        <div class="sync-info">
+          <span class="sync-status">
+            <span class="dot idle" id="bannerDot"></span>
+            <span id="bannerStatus">等待执行</span>
+          </span>
+          <div class="sync-detail" id="bannerDetail">点击「手动同步」开始收取简历</div>
+        </div>
+        <div class="sync-actions">
+          <button class="btn btn-ghost btn-sm" onclick="triggerSync(null)">全部账号</button>
+        </div>
+      </div>
+
+      <!-- Scheduler Status Banner -->
+      <div class="sync-banner" id="schedulerBanner" style="margin-bottom:16px">
+        <div class="sync-info">
+          <span class="sync-status">
+            <span class="dot idle" id="schedDot"></span>
+            <span id="schedStatusText">定时任务未启用</span>
+          </span>
+          <div class="sync-detail" id="schedDetail">—</div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-bar" id="statsBar">
+        <!-- 动态填充 -->
+      </div>
+
+      <!-- Quick: Recent Records -->
+      <div class="card">
+        <div class="card-header">
+          <h3>最近收取记录</h3>
+          <button class="btn btn-ghost btn-sm" onclick="switchPage('records')">查看全部 →</button>
+        </div>
+        <div class="card-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>账号</th>
+                  <th>主题</th>
+                  <th>收取时间</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody id="recentRecords"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Accounts ═══ -->
+    <div id="page-accounts" class="page" style="display:none">
+      <div class="page-header">
+        <div>
+          <h2 class="page-title">收取邮箱配置</h2>
+          <p class="page-desc">管理收取简历的邮箱账号与附件匹配规则</p>
+        </div>
+        <button class="btn btn-primary" onclick="openAccountModal()">+ 添加邮箱</button>
+      </div>
+
+      <!-- Rules Card -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <h3>匹配规则</h3>
+          <button class="btn btn-ghost btn-sm" onclick="openRulesModal()">编辑规则</button>
+        </div>
+        <div class="card-body" id="rulesDisplay">
+        </div>
+      </div>
+
+      <!-- Account List -->
+      <div class="account-list" id="accountList">
+      </div>
+    </div>
+
+    <!-- ═══ Records ═══ -->
+    <div id="page-records" class="page" style="display:none">
+      <div class="page-header">
+        <div>
+          <h2 class="page-title">收取记录</h2>
+          <p class="page-desc">所有简历收取的历史记录</p>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <select class="form-input" id="filterAccount" onchange="loadRecords()">
+          <option value="">全部账号</option>
+        </select>
+        <select class="form-input" id="filterMatched" onchange="loadRecords()">
+          <option value="">全部状态</option>
+          <option value="1">已匹配</option>
+          <option value="0">未匹配</option>
+        </select>
+        <input type="text" class="form-input" id="filterKeyword" placeholder="搜索主题或文件名..." onkeyup="debounceLoadRecords()">
+        <input type="date" class="form-input" id="filterDateFrom" title="开始日期" onchange="onRecordsDateChange()">
+        <span class="date-sep">至</span>
+        <input type="date" class="form-input" id="filterDateTo" title="结束日期" onchange="onRecordsDateChange()">
+        <button class="btn btn-ghost btn-sm" onclick="clearDateFilter('records')">清除日期</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadRecords()">刷新</button>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>账号</th>
+                  <th>邮件主题</th>
+                  <th>邮件时间</th>
+                  <th>收取时间</th>
+                  <th>附件</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody id="recordsBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="recordsPagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Schedulers (Settings) ═══ -->
+    <div id="page-schedulers" class="page" style="display:none">
+      <div class="page-header">
+        <div>
+          <h2 class="page-title">定时任务设置</h2>
+          <p class="page-desc">配置邮箱收取与简历解析的自动执行计划</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <h3>邮箱收取定时任务</h3>
+          <button class="btn btn-primary btn-sm" onclick="saveScheduler()">保存配置</button>
+        </div>
+        <div class="card-body">
+          <div class="scheduler-row">
+            <label class="toggle">
+              <input type="checkbox" id="schedulerEnabled">
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+            <span style="font-weight:600">启用定时收取</span>
+          </div>
+          <div class="form-grid" style="margin-top:12px">
+            <div class="form-group">
+              <label class="form-label">执行间隔（分钟）</label>
+              <input type="number" class="form-input" id="schedulerInterval" value="30" min="5" max="1440">
+            </div>
+            <div class="form-group">
+              <label class="form-label">首次执行时间（每小时的第几分钟）</label>
+              <input type="number" class="form-input" id="schedulerMinute" value="0" min="0" max="59">
+              <span style="font-size:.72rem;color:var(--text-muted)">例如填 0 表示每小时的 00 分执行，填 10 表示每小时的 10 分执行</span>
+            </div>
+            <div class="form-group full">
+              <label class="form-label">执行账号</label>
+              <select class="form-input" id="schedulerAccounts" multiple style="height:80px">
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:20px;padding:14px;background:var(--bg-base);border-radius:var(--radius-sm);font-size:.82rem;color:var(--text-secondary)" id="schedulerInfo">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+              <span style="font-size:.9rem">✅</span>
+              <span style="font-weight:600">定时任务已生效</span>
+            </div>
+            <div style="color:var(--text-muted);font-size:.78rem;line-height:1.6">
+              服务器后台线程会按照以上配置自动触发收取。<br>
+              修改后请点击「保存配置」，配置立即生效。<br>
+              服务器重启后定时任务也会自动恢复运行。
+            </div>
+            <div id="schedulerNextRun" style="margin-top:10px;padding:10px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border);font-size:.8rem">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>简历解析定时任务</h3>
+          <button class="btn btn-primary btn-sm" onclick="saveParserScheduler()">保存配置</button>
+        </div>
+        <div class="card-body">
+          <div class="scheduler-row">
+            <label class="toggle">
+              <input type="checkbox" id="parserSchedulerEnabled">
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+            <span style="font-weight:600">启用定时解析</span>
+          </div>
+          <div class="form-grid" style="margin-top:12px">
+            <div class="form-group">
+              <label class="form-label">执行间隔（分钟）</label>
+              <input type="number" class="form-input" id="parserSchedulerInterval" value="60" min="5" max="1440">
+            </div>
+            <div class="form-group">
+              <label class="form-label">首次执行时间（每小时的第几分钟）</label>
+              <input type="number" class="form-input" id="parserSchedulerMinute" value="0" min="0" max="59">
+            </div>
+          </div>
+          <div style="margin-top:20px;padding:14px;background:var(--bg-base);border-radius:var(--radius-sm);font-size:.82rem;color:var(--text-secondary)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <span style="color:var(--success)">✓</span>
+              <span style="font-weight:600">解析定时任务</span>
+            </div>
+            <div style="color:var(--text-muted);font-size:.78rem;line-height:1.6">
+              保存配置后服务器后台线程自动触发；若上一轮未完成，新任务将排队等待。
+            </div>
+            <div id="parserSchedulerNextRun" style="margin-top:10px;padding:10px 12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border);font-size:.8rem">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Allocation Rules ═══ -->
+    <div id="page-allocation-rules" class="page" style="display:none">
+      <div class="page-header">
+        <div>
+          <h2 class="page-title">分配规则配置</h2>
+          <p class="page-desc">为邮箱账号配置岗位编号与租户信息，解析与推送时按文件名匹配账号并写入对应字段</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="addAllocationRuleRow()">＋ 添加规则</button>
+          <button class="btn btn-primary" onclick="saveJobs()">保存配置</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>账号名称</th>
+                  <th>邮箱地址</th>
+                  <th>岗位编号</th>
+                  <th>租户ID</th>
+                  <th>租户名</th>
+                  <th style="width:72px">操作</th>
+                </tr>
+              </thead>
+              <tbody id="jobsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Parser Settings ═══ -->
+    <div id="page-parser-settings" class="page" style="display:none">
+      <div class="page-header">
+        <div>
+          <h2 class="page-title">简历解析配置</h2>
+          <p class="page-desc">解析目录及大模型参数</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>解析参数</h3>
+          <button class="btn btn-primary btn-sm" onclick="saveParserConfig()">保存配置</button>
+        </div>
+        <div class="card-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">简历输入目录</label>
+              <input type="text" class="form-input" id="parserInput" placeholder="/Users/admin/Desktop/resume">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Excel 输出目录</label>
+              <input type="text" class="form-input" id="parserOutput" placeholder="/Users/admin/Desktop/resume-output">
+            </div>
+            <div class="form-group">
+              <label class="form-label">模型</label>
+              <input type="text" class="form-input" id="parserModel" placeholder="deepseek/deepseek-chat-v3-0324">
+            </div>
+            <div class="form-group">
+              <label class="form-label">API Base URL</label>
+              <input type="text" class="form-input" id="parserBaseUrl">
+            </div>
+            <div class="form-group">
+              <label class="form-label">API Key</label>
+              <input type="password" class="form-input" id="parserApiKey" placeholder="留空表示不修改">
+            </div>
+            <div class="form-group">
+              <label class="form-label">并发数</label>
+              <input type="number" class="form-input" id="parserConcurrency" value="1" min="1" max="2">
+              <span style="font-size:.72rem;color:var(--text-muted)">最多 2，同时调模型的简历份数；过高易触发接口限流</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Push Settings ═══ -->
+    <div id="page-push-settings" class="page" style="display:none">
+      <div class="page-header">
+        <div>
+          <h2 class="page-title">推送接口配置</h2>
+          <p class="page-desc">解析完成后自动推送候选人数据到外部导入接口</p>
+        </div>
+        <button class="btn btn-primary" onclick="savePushConfig()">保存配置</button>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+            <div class="form-group">
+              <label class="form-label">启用自动推送</label>
+              <select class="form-input" id="pushEnabled">
+                <option value="true">开启</option>
+                <option value="false">关闭</option>
+              </select>
+            </div>
+            <div class="form-group" style="grid-column:span 2">
+              <label class="form-label">接口地址</label>
+              <input type="text" class="form-input" id="pushApiUrl" placeholder="https://101.201.72.152/taiying/api/portal/open/candidates/import">
+            </div>
+            <div class="form-group" style="grid-column:span 2">
+              <label class="form-label">Host 头（访问 IP 时必填）</label>
+              <input type="text" class="form-input" id="pushHostHeader" placeholder="baicai.resultscloud.com">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Bearer Token</label>
+              <input type="text" class="form-input" id="pushBearerToken" placeholder="推送接口鉴权 Token" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label class="form-label">超时（秒）</label>
+              <input type="number" class="form-input" id="pushTimeout" value="60">
+            </div>
+            <div class="form-group">
+              <label class="form-label">校验 SSL 证书</label>
+              <select class="form-input" id="pushVerifySsl">
+                <option value="false">关闭（IP 直连时常用）</option>
+                <option value="true">开启</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Parser ═══ -->
+    <div id="page-parser" class="page" style="display:none">
+      <div class="page-header">
+        <div>
+          <h2 class="page-title">简历解析</h2>
+          <p class="page-desc">简历解析实时状态与最近处理记录</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="triggerParse()" id="parseBtn">▶ 手动解析</button>
+        </div>
+      </div>
+
+      <div class="sync-banner" id="parserBanner">
+        <div class="sync-info" style="flex:1;flex-direction:column;align-items:flex-start;gap:6px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <span class="sync-status">
+              <span class="dot idle" id="parserDot"></span>
+              <span id="parserStatusText">等待执行</span>
+            </span>
+            <div class="sync-detail" id="parserDetail">点击「手动解析」开始解析简历</div>
+          </div>
+          <div id="parserProgressWrap" class="progress-wrap" style="display:none;width:100%;max-width:640px">
+            <div class="progress-meta">
+              <span class="count" id="parserProgressCount">已处理 0 / 0</span>
+              <span class="pct" id="parserProgressPct">0%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="parserProgressFill"></div>
+            </div>
+            <div class="progress-stats">
+              <span>成功 <strong id="parserStatOk">0</strong></span>
+              <span>失败 <strong id="parserStatFail">0</strong></span>
+              <span id="parserQueueInfo" style="color:var(--text-muted)"></span>
+            </div>
+            <div id="parserActiveWrap" class="parse-active-wrap" style="display:none">
+              <div class="parse-thinking">
+                <span class="thinking-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+                <span>正在解析</span>
+              </div>
+              <div class="parse-active-files">
+                <div id="parserActiveLine1" class="parse-active-line" title=""></div>
+                <div id="parserActiveLine2" class="parse-active-line" title=""></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sync-actions">
+          <button class="btn btn-ghost btn-sm" onclick="switchPage('parser-settings')">解析配置</button>
+        </div>
+      </div>
+
+      <div class="sync-banner" id="parserSchedulerBanner" style="margin-bottom:16px">
+        <div class="sync-info">
+          <span class="sync-status">
+            <span class="dot idle" id="parserSchedDot"></span>
+            <span id="parserSchedStatusText">定时解析未启用</span>
+          </span>
+          <div class="sync-detail" id="parserSchedDetail">—</div>
+        </div>
+        <div class="sync-actions">
+          <button class="btn btn-ghost btn-sm" onclick="switchPage('schedulers')">定时任务</button>
+        </div>
+      </div>
+
+      <div class="stats-bar" id="parserStatsBar"></div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>最近解析记录</h3>
+          <button class="btn btn-ghost btn-sm" onclick="switchPage('parse-records')">查看全部 →</button>
+        </div>
+        <div class="card-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>文件名</th>
+                  <th>候选人姓名</th>
+                  <th>账号</th>
+                  <th>岗位编号</th>
+                  <th>解析时间</th>
+                  <th>解析状态</th>
+                  <th>推送时间</th>
+                  <th>推送状态</th>
+                </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Parse Records ═══ -->
+    <div id="page-push-records" class="page" style="display:none">
+      <div class="page-header">
+        <div>
+          <h2 class="page-title">推送记录</h2>
+          <p class="page-desc">每次解析成功后按批次推送到候选人导入接口；重推时会读取「分配规则配置」中的最新租户名</p>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <select class="form-input" id="pushFilterStatus" onchange="loadPushRecords()">
+          <option value="">全部状态</option>
+          <option value="success">推送成功</option>
+          <option value="partial">部分成功</option>
+          <option value="failed">推送失败</option>
+          <option value="pushing">推送中</option>
+        </select>
+        <input type="date" class="form-input" id="pushFilterDateFrom" title="开始日期" onchange="onPushRecordsDateChange()">
+        <span class="date-sep">至</span>
+        <input type="date" class="form-input" id="pushFilterDateTo" title="结束日期" onchange="onPushRecordsDateChange()">
+        <button class="btn btn-ghost btn-sm" onclick="clearDateFilter('push')">清除日期</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadPushRecords()">刷新</button>
+        <button class="btn btn-primary btn-sm" id="pushRetryBtn" onclick="retrySelectedPush()" disabled>按最新租户重推</button>
+        <span id="pushStatsText" style="font-size:.78rem;color:var(--text-muted);margin-left:auto"></span>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:36px"></th>
+                  <th>推送时间</th>
+                  <th>租户名</th>
+                  <th>推送人数</th>
+                  <th>新建</th>
+                  <th>更新</th>
+                  <th>失败</th>
+                  <th>跳过</th>
+                  <th>触发方式</th>
+                  <th>状态</th>
+                  <th>接口返回摘要</th>
+                </tr>
+              </thead>
+              <tbody id="pushRecordsBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="pushRecordsPagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-parse-records" class="page" style="display:none">
+      <div class="page-header">
+        <div>
+          <h2 class="page-title">解析记录</h2>
+          <p class="page-desc">简历解析处理日志，点击行查看候选人详情</p>
+        </div>
+      </div>
+      <div class="filter-bar">
+        <select class="form-input" id="parseFilterStatus" onchange="loadParseRecords()">
+          <option value="">全部解析状态</option>
+          <option value="ok">解析成功</option>
+          <option value="fail">解析失败</option>
+        </select>
+        <select class="form-input" id="parseFilterPushStatus" onchange="loadParseRecords()">
+          <option value="">全部推送状态</option>
+          <option value="none">未推送</option>
+          <option value="pending">待推送</option>
+          <option value="pushing">推送中</option>
+          <option value="success">推送成功</option>
+          <option value="failed">推送失败</option>
+          <option value="skipped">已跳过</option>
+        </select>
+        <input type="text" class="form-input" id="parseFilterName" placeholder="搜索候选人姓名..." onkeyup="debounceLoadParseRecords()">
+        <input type="text" class="form-input" id="parseFilterKeyword" placeholder="搜索文件名、账号、岗位编号..." onkeyup="debounceLoadParseRecords()">
+        <input type="date" class="form-input" id="parseFilterDateFrom" title="开始日期" onchange="onParseRecordsDateChange()">
+        <span class="date-sep">至</span>
+        <input type="date" class="form-input" id="parseFilterDateTo" title="结束日期" onchange="onParseRecordsDateChange()">
+        <button class="btn btn-ghost btn-sm" onclick="clearDateFilter('parse')">清除日期</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadParseRecords()">刷新</button>
+        <button class="btn btn-primary btn-sm" id="parseRetryBtn" onclick="retrySelectedParseRecords()" disabled>重新解析并推送</button>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:40px;text-align:center">
+                    <label class="th-select-all" title="全选本页失败记录">
+                      <input type="checkbox" id="parseRetrySelectAll"
+                        onchange="toggleParseRetrySelectAll(this.checked)"
+                        onclick="event.stopPropagation()">
+                      <span>全选</span>
+                    </label>
+                  </th>
+                  <th>文件名</th>
+                  <th>候选人姓名</th>
+                  <th>账号</th>
+                  <th>岗位编号</th>
+                  <th>解析时间</th>
+                  <th>解析状态</th>
+                  <th>推送时间</th>
+                  <th>推送状态</th>
+                </tr>
+              </thead>
+              <tbody id="parseRecordsBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="parseRecordsPagination"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ═══ Account Modal ═══ -->
+<div class="modal-overlay" id="accountModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="accountModalTitle">添加邮箱</h3>
+      <button class="modal-close" onclick="closeModal('accountModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">账号名称</label>
+          <input type="text" class="form-input" id="acctName" placeholder="如 brbc-recruit">
+        </div>
+        <div class="form-group">
+          <label class="form-label">邮箱地址</label>
+          <input type="text" class="form-input" id="acctUsername" placeholder="如 brbc-recruit@brgroup.com"
+            onblur="suggestImapForAccount()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">IMAP 服务器</label>
+          <input type="text" class="form-input" id="acctHost" placeholder="如 imap.brgroup.com"
+            oninput="onAcctHostInput()">
+          <span id="acctHostHint" style="font-size:.72rem;color:var(--text-muted)"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">端口</label>
+          <input type="number" class="form-input" id="acctPort" value="993">
+        </div>
+        <div class="form-group">
+          <label class="form-label">密码 / 授权码</label>
+          <input type="password" class="form-input" id="acctPassword" placeholder="IMAP 登录密码">
+          <span style="font-size:.72rem;color:var(--text-muted)">编辑时留空表示不修改密码</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">SSL</label>
+          <select class="form-input" id="acctSSL">
+            <option value="true">开启</option>
+            <option value="false">关闭</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">邮箱目录</label>
+          <input type="text" class="form-input" id="acctMailbox" value="INBOX">
+        </div>
+        <div class="form-group">
+          <label class="form-label">下载路径</label>
+          <input type="text" class="form-input" id="acctDownload" placeholder="如 /Users/admin/Desktop/resume">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('accountModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveAccount()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Rules Modal ═══ -->
+<div class="modal-overlay" id="rulesModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>编辑匹配规则</h3>
+      <button class="modal-close" onclick="closeModal('rulesModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group" style="margin-bottom:16px">
+        <label class="form-label">主题匹配规则（每行一个正则）</label>
+        <textarea class="form-input" id="rulesSubject" rows="4" style="resize:vertical" placeholder="如: (?=.*BOSS直聘)(?=.*泰安)"></textarea>
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label class="form-label">主题排除规则（每行一个正则）</label>
+        <textarea class="form-input" id="rulesExclude" rows="2" style="resize:vertical" placeholder="排除特定主题"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">附件扩展名（每行一个）</label>
+        <textarea class="form-input" id="rulesExtensions" rows="3" style="resize:vertical" placeholder="如: .pdf&#10;.doc"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('rulesModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveRules()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Parse Detail Modal ═══ -->
+<div class="modal-overlay" id="pushDetailModal">
+  <div class="modal" style="max-width:920px;max-height:88vh;overflow:auto">
+    <div class="modal-header">
+      <h3 id="pushDetailTitle">推送详情</h3>
+      <button class="modal-close" onclick="closeModal('pushDetailModal')">×</button>
+    </div>
+    <div class="modal-body" id="pushDetailBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('pushDetailModal')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="parseDetailModal">
+  <div class="modal" style="max-width:720px;max-height:85vh;overflow:auto">
+    <div class="modal-header">
+      <h3 id="parseDetailTitle">解析详情</h3>
+      <button class="modal-close" onclick="closeModal('parseDetailModal')">×</button>
+    </div>
+    <div class="modal-body" id="parseDetailBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('parseDetailModal')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  State
+// ═══════════════════════════════════════════════════════════
+let currentEditAccount = null;
+let acctHostAutoValue = '';
+let acctHostUserEdited = false;
+let recordsPage = 1;
+let parseRecordsPage = 1;
+let pushRecordsPage = 1;
+let selectedPushIds = new Set();
+let selectedParseRetryIds = new Set();
+let debounceTimer = null;
+let parseDebounceTimer = null;
+let pollTimer = null;
+let parsePollTimer = null;
+
+// ═══════════════════════════════════════════════════════════
+//  API Helpers
+// ═══════════════════════════════════════════════════════════
+async function api(url, opts = {}) {
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json', ...opts.headers },
+    ...opts,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || '请求失败');
+  }
+  return res.json();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Toast
+// ═══════════════════════════════════════════════════════════
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Page Switching
+// ═══════════════════════════════════════════════════════════
+function switchPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+  document.getElementById('page-' + name).style.display = '';
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === name));
+  if (name === 'dashboard') refreshDashboard();
+  if (name === 'accounts') loadAccounts();
+  if (name === 'records') loadRecordsPage();
+  if (name === 'schedulers') loadSchedulers();
+  if (name === 'allocation-rules') loadAllocationRules();
+  if (name === 'parser-settings') loadParserSettings();
+  if (name === 'push-settings') loadPushSettings();
+  if (name === 'parser') loadParser();
+  if (name === 'parse-records') loadParseRecords();
+  if (name === 'push-records') loadPushRecordsPage();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Modal
+// ═══════════════════════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ═══════════════════════════════════════════════════════════
+//  Dashboard
+// ═══════════════════════════════════════════════════════════
+async function refreshDashboard() {
+  try {
+    const st = await api('/api/status');
+    updateStatusUI(st);
+    // Stats
+    const accounts = st.account_stats || {};
+    const wm = st.watermarks || {};
+    let totalRecords = 0, totalMatched = 0, acctCount = Object.keys(accounts).length;
+    for (const [k, v] of Object.entries(accounts)) {
+      totalRecords += v.total;
+      totalMatched += v.matched;
+    }
+    document.getElementById('statsBar').innerHTML = `
+      <div class="stat-card">
+        <div class="stat-label">邮箱账号</div>
+        <div class="stat-value accent">${acctCount}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">处理邮件</div>
+        <div class="stat-value">${totalRecords}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">匹配简历</div>
+        <div class="stat-value success">${totalMatched}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">运行状态</div>
+        <div class="stat-value ${st.status === 'running' ? 'warning' : st.status === 'error' ? '' : 'success'}" style="font-size:1rem">
+          ${st.status === 'running' ? '收取中...' : st.status === 'error' ? '出错' : '空闲'}
+        </div>
+      </div>
+    `;
+    // Recent records
+    const rec = await api('/api/records?per_page=8');
+    const tbody = document.getElementById('recentRecords');
+    if (rec.records.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:32px">暂无收取记录</td></tr>';
+    } else {
+      tbody.innerHTML = rec.records.map(r => `
+        <tr>
+          <td><span style="font-family:var(--font-mono);font-size:.76rem">${r.account_name}</span></td>
+          <td class="subject" title="${esc(r.subject || '')}">${esc(r.subject || '—')}</td>
+          <td style="font-family:var(--font-mono);font-size:.76rem">${fmtTime(r.processed_at)}</td>
+          <td>${r.matched ? '<span class="tag tag-matched">已匹配</span>' : '<span class="tag tag-skipped">未匹配</span>'}</td>
+        </tr>
+      `).join('');
+    }
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+function updateStatusUI(st) {
+  const dots = ['sidebarDot', 'bannerDot'];
+  const dotClass = st.status || 'idle';
+  dots.forEach(id => {
+    const el = document.getElementById(id);
+    el.className = 'dot ' + dotClass;
+    if (id === 'sidebarDot') el.className = 'status-dot ' + dotClass;
+  });
+  const statusText = st.status === 'running' ? '收取中' : st.status === 'error' ? '执行出错' : '空闲';
+  document.getElementById('sidebarStatus').textContent = statusText;
+  document.getElementById('bannerStatus').textContent = statusText;
+  document.getElementById('bannerDetail').textContent = st.message || '';
+  // Button
+  const btn = document.getElementById('syncBtn');
+  if (st.status === 'running') {
+    btn.disabled = true;
+    btn.innerHTML = '⏳ 收取中...';
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = '▶ 手动同步';
+  }
+  // Scheduler status banner
+  const sched = st.scheduler || {};
+  const schedDot = document.getElementById('schedDot');
+  const schedStatusText = document.getElementById('schedStatusText');
+  const schedDetail = document.getElementById('schedDetail');
+  if (sched.enabled) {
+    schedDot.className = 'dot idle';
+    schedDot.style.background = 'var(--success)';
+    schedStatusText.textContent = '定时收取已启用';
+    let detail = '';
+    if (sched.next_run_at) {
+      const next = new Date(sched.next_run_at);
+      const diffMs = next - new Date();
+      const diffMin = Math.floor(diffMs / 60000);
+      if (diffMin > 0) {
+        detail += `下次执行: ${fmtTime(sched.next_run_at)}（约 ${diffMin} 分钟后）`;
+      } else {
+        detail += `下次执行: ${fmtTime(sched.next_run_at)}（即将执行）`;
+      }
+    }
+    if (sched.last_run_at) {
+      detail += (detail ? '  ·  ' : '') + `上次自动执行: ${fmtTime(sched.last_run_at)}`;
+    }
+    schedDetail.textContent = detail || '等待计算下次执行时间...';
+  } else {
+    schedDot.className = 'dot idle';
+    schedDot.style.background = '';
+    schedStatusText.textContent = '定时任务未启用';
+    schedDetail.textContent = '前往「设置 → 定时任务设置」开启';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Sync
+// ═══════════════════════════════════════════════════════════
+async function triggerSync(account) {
+  try {
+    await api('/api/sync', { method: 'POST', body: JSON.stringify({ account }) });
+    toast('已触发收取任务', 'success');
+    // Poll status
+    pollStatus();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+function pollStatus() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    try {
+      const st = await api('/api/status');
+      updateStatusUI(st);
+      if (st.status !== 'running') {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        refreshDashboard();
+      }
+    } catch(e) {}
+  }, 2000);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Accounts
+// ═══════════════════════════════════════════════════════════
+async function loadAccounts() {
+  try {
+    const accts = await api('/api/accounts');
+    const rules = await api('/api/rules');
+    // Render accounts
+    const list = document.getElementById('accountList');
+    if (accts.length === 0) {
+      list.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>还没有配置邮箱账号</p></div>';
+    } else {
+      list.innerHTML = accts.map(a => `
+        <div class="account-card">
+          <div class="account-top">
+            <div class="account-name">
+              <span class="icon">📮</span> ${esc(a.name)}
+              <span class="account-badge badge-connected">已配置</span>
+              <span class="account-badge badge-watermark">UID ${a.watermark_uid || 0}</span>
+            </div>
+          </div>
+          <div class="account-meta">
+            <div class="meta-item">服务器: <span>${esc(a.imap_host)}:${a.imap_port}</span></div>
+            <div class="meta-item">邮箱: <span>${esc(a.username)}</span></div>
+            <div class="meta-item">SSL: <span>${a.imap_ssl ? '✓' : '✗'}</span></div>
+            <div class="meta-item">下载到: <span>${esc(a.download_path)}</span></div>
+          </div>
+          <div class="account-actions">
+            <button class="btn btn-ghost btn-sm" onclick="editAccount('${esc(a.name)}')">编辑</button>
+            <button class="btn btn-success btn-sm" onclick="triggerSync('${esc(a.name)}')">立即收取</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteAccount('${esc(a.name)}')">删除</button>
+          </div>
+        </div>
+      `).join('');
+    }
+    // Rules display
+    document.getElementById('rulesDisplay').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:.84rem">
+        <div><span style="color:var(--text-muted);font-size:.72rem;text-transform:uppercase;font-weight:700">主题匹配</span><br>
+          ${rules.subject_patterns.map(p => `<span style="font-family:var(--font-mono);font-size:.78rem;color:var(--accent)">${esc(p)}</span>`).join('<br>')}
+        </div>
+        <div><span style="color:var(--text-muted);font-size:.72rem;text-transform:uppercase;font-weight:700">附件类型</span><br>
+          ${rules.attachment_extensions.map(e => `<span style="font-family:var(--font-mono);font-size:.78rem">${esc(e)}</span>`).join(' ')}
+        </div>
+      </div>
+    `;
+    // Update filter dropdown
+    await refreshRecordAccountFilter();
+    // Update scheduler account select
+    const sSel = document.getElementById('schedulerAccounts');
+    sSel.innerHTML = accts.map(a => `<option value="${esc(a.name)}">${esc(a.name)}</option>`).join('');
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+function resetAccountImapAutoState() {
+  acctHostAutoValue = '';
+  acctHostUserEdited = false;
+  const hint = document.getElementById('acctHostHint');
+  if (hint) hint.textContent = '';
+}
+
+function onAcctHostInput() {
+  const host = document.getElementById('acctHost').value.trim();
+  acctHostUserEdited = Boolean(host && host !== acctHostAutoValue);
+  if (acctHostUserEdited) {
+    const hint = document.getElementById('acctHostHint');
+    if (hint) hint.textContent = '';
+  }
+}
+
+async function suggestImapForAccount() {
+  if (currentEditAccount) return;
+  const email = document.getElementById('acctUsername').value.trim();
+  if (!email.includes('@')) return;
+
+  const hostEl = document.getElementById('acctHost');
+  const currentHost = hostEl.value.trim();
+  if (acctHostUserEdited && currentHost && currentHost !== acctHostAutoValue) return;
+
+  try {
+    const data = await api(`/api/accounts/imap-suggest?email=${encodeURIComponent(email)}`);
+    if (!data.ok || !data.host) return;
+
+    hostEl.value = data.host;
+    acctHostAutoValue = data.host;
+    acctHostUserEdited = false;
+    if (data.port) document.getElementById('acctPort').value = data.port;
+    if (data.ssl !== undefined) document.getElementById('acctSSL').value = String(data.ssl);
+
+    const hint = document.getElementById('acctHostHint');
+    if (hint && data.message) hint.textContent = data.message;
+
+    const nameEl = document.getElementById('acctName');
+    if (!nameEl.value.trim()) {
+      const local = email.split('@')[0];
+      nameEl.value = local;
+    }
+  } catch (_) { /* 推断失败时保持手填 */ }
+}
+
+function openAccountModal(acct = null) {
+  currentEditAccount = acct ? acct.name : null;
+  resetAccountImapAutoState();
+  document.getElementById('accountModalTitle').textContent = acct ? '编辑邮箱' : '添加邮箱';
+  if (acct) {
+    document.getElementById('acctName').value = acct.name;
+    document.getElementById('acctUsername').value = acct.username;
+    document.getElementById('acctHost').value = acct.imap_host;
+    document.getElementById('acctPort').value = acct.imap_port;
+    document.getElementById('acctPassword').value = '';
+    document.getElementById('acctSSL').value = String(acct.imap_ssl);
+    document.getElementById('acctMailbox').value = acct.mailbox;
+    document.getElementById('acctDownload').value = acct.download_path;
+  } else {
+    ['acctName','acctUsername','acctHost','acctPassword','acctDownload'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('acctPort').value = '993';
+    document.getElementById('acctSSL').value = 'true';
+    document.getElementById('acctMailbox').value = 'INBOX';
+  }
+  openModal('accountModal');
+}
+
+async function editAccount(name) {
+  const accts = await api('/api/accounts');
+  const acct = accts.find(a => a.name === name);
+  if (acct) openAccountModal(acct);
+}
+
+async function saveAccount() {
+  const data = {
+    name: document.getElementById('acctName').value.trim(),
+    imap_host: document.getElementById('acctHost').value.trim(),
+    imap_port: parseInt(document.getElementById('acctPort').value) || 993,
+    imap_ssl: document.getElementById('acctSSL').value === 'true',
+    username: document.getElementById('acctUsername').value.trim(),
+    password: document.getElementById('acctPassword').value,
+    mailbox: document.getElementById('acctMailbox').value.trim() || 'INBOX',
+    download_path: document.getElementById('acctDownload').value.trim(),
+  };
+  if (!data.name || !data.imap_host || !data.username || !data.download_path) {
+    toast('请填写必填字段', 'error'); return;
+  }
+  if (currentEditAccount && !data.password) {
+    // 编辑时不改密码
+    delete data.password;
+  } else if (!data.password) {
+    toast('请填写密码', 'error'); return;
+  }
+  try {
+    if (currentEditAccount) {
+      await api(`/api/accounts/${encodeURIComponent(currentEditAccount)}`, { method: 'PUT', body: JSON.stringify(data) });
+      toast('账号已更新', 'success');
+    } else {
+      await api('/api/accounts', { method: 'POST', body: JSON.stringify(data) });
+      toast('账号已添加', 'success');
+    }
+    closeModal('accountModal');
+    loadAccounts();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function deleteAccount(name) {
+  if (!confirm(`确定删除邮箱「${name}」？此操作不可恢复。`)) return;
+  try {
+    await api(`/api/accounts/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    toast('账号已删除', 'success');
+    loadAccounts();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Rules
+// ═══════════════════════════════════════════════════════════
+async function openRulesModal() {
+  const rules = await api('/api/rules');
+  document.getElementById('rulesSubject').value = rules.subject_patterns.join('\n');
+  document.getElementById('rulesExclude').value = (rules.subject_exclude_patterns || []).join('\n');
+  document.getElementById('rulesExtensions').value = rules.attachment_extensions.join('\n');
+  openModal('rulesModal');
+}
+
+async function saveRules() {
+  const data = {
+    subject_patterns: document.getElementById('rulesSubject').value.split('\n').map(s=>s.trim()).filter(Boolean),
+    subject_exclude_patterns: document.getElementById('rulesExclude').value.split('\n').map(s=>s.trim()).filter(Boolean),
+    attachment_extensions: document.getElementById('rulesExtensions').value.split('\n').map(s=>s.trim()).filter(Boolean),
+  };
+  try {
+    await api('/api/rules', { method: 'PUT', body: JSON.stringify(data) });
+    toast('规则已保存', 'success');
+    closeModal('rulesModal');
+    loadAccounts();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Records
+// ═══════════════════════════════════════════════════════════
+async function refreshRecordAccountFilter() {
+  const sel = document.getElementById('filterAccount');
+  if (!sel) return;
+  const currentVal = sel.value;
+  const names = new Set();
+  try {
+    const st = await api('/api/status');
+    Object.keys(st.account_stats || {}).forEach(n => names.add(n));
+  } catch (e) {}
+  try {
+    const accts = await api('/api/accounts');
+    accts.forEach(a => names.add(a.name));
+  } catch (e) {}
+  const sorted = [...names].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  sel.innerHTML = '<option value="">全部账号</option>' + sorted.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  if (currentVal && names.has(currentVal)) sel.value = currentVal;
+}
+
+async function loadRecordsPage() {
+  await refreshRecordAccountFilter();
+  loadRecords();
+}
+
+function appendDateParams(url, fromId, toId) {
+  const from = document.getElementById(fromId)?.value;
+  const to = document.getElementById(toId)?.value;
+  if (from) url += `&date_from=${encodeURIComponent(from)}`;
+  if (to) url += `&date_to=${encodeURIComponent(to)}`;
+  return url;
+}
+
+function clearDateFilter(page) {
+  const ids = {
+    records: ['filterDateFrom', 'filterDateTo'],
+    parse: ['parseFilterDateFrom', 'parseFilterDateTo'],
+    push: ['pushFilterDateFrom', 'pushFilterDateTo'],
+  }[page];
+  if (!ids) return;
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  if (page === 'records') { recordsPage = 1; loadRecords(); }
+  else if (page === 'parse') { parseRecordsPage = 1; loadParseRecords(); }
+  else if (page === 'push') { pushRecordsPage = 1; loadPushRecords(); }
+}
+
+function onRecordsDateChange() { recordsPage = 1; loadRecords(); }
+function onParseRecordsDateChange() { parseRecordsPage = 1; loadParseRecords(); }
+function onPushRecordsDateChange() { pushRecordsPage = 1; loadPushRecords(); }
+
+async function loadRecords(page) {
+  if (page) recordsPage = page;
+  const account = document.getElementById('filterAccount').value;
+  const matched = document.getElementById('filterMatched').value;
+  const keyword = document.getElementById('filterKeyword').value.trim();
+  let url = `/api/records?page=${recordsPage}&per_page=20`;
+  if (account) url += `&account=${encodeURIComponent(account)}`;
+  if (matched) url += `&matched=${matched}`;
+  if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
+  url = appendDateParams(url, 'filterDateFrom', 'filterDateTo');
+  try {
+    const data = await api(url);
+    const tbody = document.getElementById('recordsBody');
+    if (data.records.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:32px">暂无记录</td></tr>';
+    } else {
+      tbody.innerHTML = data.records.map(r => `
+        <tr>
+          <td style="font-family:var(--font-mono);font-size:.76rem">${esc(r.account_name)}</td>
+          <td class="subject" title="${esc(r.subject || '')}">${esc(r.subject || '—')}</td>
+          <td style="font-family:var(--font-mono);font-size:.76rem">${fmtTime(r.mail_date)}</td>
+          <td style="font-family:var(--font-mono);font-size:.76rem">${fmtTime(r.processed_at)}</td>
+          <td style="font-family:var(--font-mono);font-size:.76rem">${r.saved_files.length} 个</td>
+          <td>${r.matched ? '<span class="tag tag-matched">已匹配</span>' : '<span class="tag tag-skipped">未匹配</span>'}</td>
+        </tr>
+      `).join('');
+    }
+    // Pagination
+    const pg = document.getElementById('recordsPagination');
+    const { total, page: p, total_pages } = data;
+    let pagesHtml = '';
+    for (let i = 1; i <= total_pages; i++) {
+      if (total_pages > 7 && Math.abs(i - p) > 2 && i !== 1 && i !== total_pages) {
+        if (i === p - 3 || i === p + 3) pagesHtml += '<span style="color:var(--text-muted)">…</span>';
+        continue;
+      }
+      pagesHtml += `<button class="page-btn ${i === p ? 'active' : ''}" onclick="loadRecords(${i})">${i}</button>`;
+    }
+    pg.innerHTML = `
+      <span>共 ${total} 条记录</span>
+      <div class="page-btns">${pagesHtml}</div>
+    `;
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+function debounceLoadRecords() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => { recordsPage = 1; loadRecords(); }, 400);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Scheduler
+// ═══════════════════════════════════════════════════════════
+async function loadScheduler() {
+  try {
+    const data = await api('/api/scheduler');
+    document.getElementById('schedulerEnabled').checked = data.enabled;
+    document.getElementById('schedulerInterval').value = data.interval_minutes || 30;
+    document.getElementById('schedulerMinute').value = data.minute !== undefined ? data.minute : 0;
+    // Set selected accounts
+    const sel = document.getElementById('schedulerAccounts');
+    if (data.accounts && data.accounts.length) {
+      Array.from(sel.options).forEach(o => {
+        o.selected = data.accounts.includes(o.value);
+      });
+    }
+    // 加载实时调度状态
+    updateSchedulerStatus();
+  } catch(e) {}
+}
+
+async function updateSchedulerStatus() {
+  try {
+    const st = await api('/api/status');
+    const sched = st.scheduler || {};
+    const el = document.getElementById('schedulerNextRun');
+    if (!sched.enabled) {
+      el.innerHTML = '<span style="color:var(--text-muted)">⏸ 定时任务未启用</span>';
+      return;
+    }
+    let html = '<div style="display:flex;gap:20px;flex-wrap:wrap">';
+    if (sched.next_run_at) {
+      html += `<div><span style="color:var(--text-muted)">下次执行</span><br><span style="font-family:var(--font-mono);color:var(--accent);font-weight:600">${fmtTime(sched.next_run_at)}</span></div>`;
+    }
+    if (sched.last_run_at) {
+      html += `<div><span style="color:var(--text-muted)">上次自动执行</span><br><span style="font-family:var(--font-mono)">${fmtTime(sched.last_run_at)}</span></div>`;
+    }
+    if (sched.last_accounts && sched.last_accounts.length) {
+      html += `<div><span style="color:var(--text-muted)">执行账号</span><br><span style="font-family:var(--font-mono)">${sched.last_accounts.join(', ')}</span></div>`;
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  } catch(e) {}
+}
+
+async function saveScheduler() {
+  const data = {
+    enabled: document.getElementById('schedulerEnabled').checked,
+    interval_minutes: parseInt(document.getElementById('schedulerInterval').value) || 30,
+    minute: parseInt(document.getElementById('schedulerMinute').value) || 0,
+    accounts: Array.from(document.getElementById('schedulerAccounts').selectedOptions).map(o => o.value),
+  };
+  try {
+    await api('/api/scheduler', { method: 'PUT', body: JSON.stringify(data) });
+    toast('定时配置已保存', 'success');
+    updateSchedulerStatus();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function loadSchedulers() {
+  try {
+    const accts = await api('/api/accounts');
+    const sSel = document.getElementById('schedulerAccounts');
+    sSel.innerHTML = accts.map(a => `<option value="${esc(a.name)}">${esc(a.name)}</option>`).join('');
+  } catch(e) {}
+  await loadScheduler();
+  try {
+    const sched = await api('/api/parser/scheduler');
+    document.getElementById('parserSchedulerEnabled').checked = sched.enabled;
+    document.getElementById('parserSchedulerInterval').value = sched.interval_minutes || 60;
+    document.getElementById('parserSchedulerMinute').value = sched.minute !== undefined ? sched.minute : 0;
+    await updateParserSchedulerStatus();
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Allocation Rules
+// ═══════════════════════════════════════════════════════════
+function jobDisplayIdOf(j) {
+  return String((j && (j.job_display_id ?? j.job_id)) || '').trim();
+}
+
+function hasAllocationRule(j) {
+  return Boolean(jobDisplayIdOf(j) || (j.tenant_id || '').trim() || (j.tenant_code || '').trim());
+}
+
+let allocationRulesCache = [];
+
+const ALLOCATION_EMPTY_ROW = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:32px">暂无分配规则，点击「添加规则」开始配置</td></tr>';
+
+function allocationRowsInTable() {
+  return [...document.querySelectorAll('#jobsBody tr')].filter(tr => !tr.querySelector('td[colspan]'));
+}
+
+function configuredAccountNamesInTable() {
+  const names = new Set();
+  allocationRowsInTable().forEach(tr => {
+    if (tr.dataset.newRow) {
+      const sel = tr.querySelector('[data-alloc-account]');
+      if (sel?.value) names.add(sel.value);
+    } else {
+      const el = tr.querySelector('[data-job-name]');
+      if (el?.dataset.jobName) names.add(el.dataset.jobName);
+    }
+  });
+  return names;
+}
+
+function accountsAvailableForNewRule(jobs) {
+  const used = configuredAccountNamesInTable();
+  return jobs.filter(j => !hasAllocationRule(j) && !used.has(j.name));
+}
+
+function renderConfiguredAllocationRow(j) {
+  return `
+    <tr>
+      <td style="font-family:var(--font-mono);font-size:.78rem">${esc(j.name)}</td>
+      <td>${esc(j.username)}</td>
+      <td><input type="text" class="form-input" data-job-name="${esc(j.name)}" value="${esc(jobDisplayIdOf(j))}" placeholder="如 B042"></td>
+      <td><input type="text" class="form-input" data-tenant-id="${esc(j.name)}" value="${esc(j.tenant_id || '')}" placeholder="UUID"></td>
+      <td><input type="text" class="form-input" data-tenant-code="${esc(j.name)}" value="${esc(j.tenant_code || '')}" placeholder="租户名称"></td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteAllocationRule('${esc(j.name)}')">删除</button></td>
+    </tr>`;
+}
+
+function renderNewAllocationRow(available) {
+  const first = available[0];
+  const options = available.map(j =>
+    `<option value="${esc(j.name)}" data-username="${esc(j.username)}">${esc(j.name)}</option>`
+  ).join('');
+  return `
+    <tr class="alloc-row-new" data-new-row="1">
+      <td>
+        <select class="form-input" data-alloc-account onchange="onAllocAccountChange(this)">${options}</select>
+      </td>
+      <td data-alloc-username>${esc(first.username)}</td>
+      <td><input type="text" class="form-input" data-alloc-job placeholder="如 B042"></td>
+      <td><input type="text" class="form-input" data-alloc-tenant-id placeholder="UUID"></td>
+      <td><input type="text" class="form-input" data-alloc-tenant-code placeholder="租户名称"></td>
+      <td><button class="btn btn-danger btn-sm" onclick="cancelNewAllocationRow(this)">删除</button></td>
+    </tr>`;
+}
+
+async function loadAllocationRules() {
+  const jobs = await api('/api/jobs');
+  allocationRulesCache = jobs;
+  const tbody = document.getElementById('jobsBody');
+  const configured = jobs.filter(hasAllocationRule);
+  const pendingNew = allocationRowsInTable().filter(tr => tr.dataset.newRow);
+  if (!configured.length && !pendingNew.length) {
+    tbody.innerHTML = ALLOCATION_EMPTY_ROW;
+    return;
+  }
+  tbody.innerHTML = pendingNew.map(tr => tr.outerHTML).join('') + configured.map(renderConfiguredAllocationRow).join('');
+}
+
+async function addAllocationRuleRow() {
+  const jobs = allocationRulesCache.length ? allocationRulesCache : await api('/api/jobs');
+  allocationRulesCache = jobs;
+  const available = accountsAvailableForNewRule(jobs);
+  if (!available.length) {
+    toast('所有邮箱账号均已配置分配规则', 'error');
+    return;
+  }
+  const tbody = document.getElementById('jobsBody');
+  const rowHtml = renderNewAllocationRow(available);
+  if (tbody.querySelector('td[colspan]')) {
+    tbody.innerHTML = rowHtml;
+  } else {
+    tbody.insertAdjacentHTML('afterbegin', rowHtml);
+  }
+}
+
+function onAllocAccountChange(sel) {
+  const opt = sel.selectedOptions[0];
+  const tr = sel.closest('tr');
+  const cell = tr?.querySelector('[data-alloc-username]');
+  if (cell) cell.textContent = opt?.dataset.username || '';
+}
+
+function cancelNewAllocationRow(btn) {
+  const tr = btn.closest('tr');
+  tr?.remove();
+  const tbody = document.getElementById('jobsBody');
+  if (!allocationRowsInTable().length) {
+    tbody.innerHTML = ALLOCATION_EMPTY_ROW;
+  }
+}
+
+async function deleteAllocationRule(name) {
+  if (!confirm(`确定删除账号「${name}」的分配规则？`)) return;
+  try {
+    await api(`/api/jobs/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    toast('分配规则已删除', 'success');
+    await loadAllocationRules();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function saveJobs() {
+  const jobs = [];
+
+  for (const tr of allocationRowsInTable()) {
+    if (tr.dataset.newRow) {
+      const name = tr.querySelector('[data-alloc-account]')?.value?.trim();
+      if (!name) continue;
+      const job_display_id = tr.querySelector('[data-alloc-job]')?.value.trim() || '';
+      const tenant_id = tr.querySelector('[data-alloc-tenant-id]')?.value.trim() || '';
+      const tenant_code = tr.querySelector('[data-alloc-tenant-code]')?.value.trim() || '';
+      if (!job_display_id && !tenant_id && !tenant_code) {
+        toast(`请完善账号「${name}」的分配规则`, 'error');
+        return;
+      }
+      jobs.push({ name, job_display_id, tenant_id, tenant_code });
+      continue;
+    }
+    const el = tr.querySelector('[data-job-name]');
+    if (!el) continue;
+    const name = el.dataset.jobName;
+    const tenantIdEl = tr.querySelector(`[data-tenant-id="${CSS.escape(name)}"]`);
+    const tenantCodeEl = tr.querySelector(`[data-tenant-code="${CSS.escape(name)}"]`);
+    jobs.push({
+      name,
+      job_display_id: el.value.trim(),
+      tenant_id: tenantIdEl ? tenantIdEl.value.trim() : '',
+      tenant_code: tenantCodeEl ? tenantCodeEl.value.trim() : '',
+    });
+  }
+
+  try {
+    await api('/api/jobs', { method: 'PUT', body: JSON.stringify({ jobs }) });
+    toast('分配规则已保存', 'success');
+    await loadAllocationRules();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Parser
+// ═══════════════════════════════════════════════════════════
+async function loadParserSettings() {
+  try {
+    const cfg = await api('/api/parser/config');
+    document.getElementById('parserInput').value = cfg.input_path || '';
+    document.getElementById('parserOutput').value = cfg.output_path || '';
+    document.getElementById('parserModel').value = cfg.model || '';
+    document.getElementById('parserBaseUrl').value = cfg.ark_base_url || '';
+    document.getElementById('parserConcurrency').value = cfg.concurrency || 5;
+    document.getElementById('parserApiKey').value = '';
+    document.getElementById('parserApiKey').placeholder = cfg.has_api_key ? '已配置，留空不修改' : '请填写 API Key';
+  } catch(e) {}
+}
+
+async function loadParser() {
+  await refreshParserPage();
+  const st = await api('/api/parser/status');
+  if (st.status === 'running') pollParseStatus();
+}
+
+async function updateParserSchedulerStatus() {
+  try {
+    const st = await api('/api/parser/status');
+    const sched = st.scheduler || {};
+    const el = document.getElementById('parserSchedulerNextRun');
+    if (!sched.enabled) {
+      el.innerHTML = '<span style="color:var(--text-muted)">⏸ 解析定时未启用，请勾选并保存配置</span>';
+      return;
+    }
+    let html = '<div style="display:flex;gap:20px;flex-wrap:wrap">';
+    if (sched.next_run_at) {
+      const next = new Date(sched.next_run_at);
+      const diffMin = Math.floor((next - new Date()) / 60000);
+      const timeStr = fmtTime(sched.next_run_at);
+      const hint = diffMin > 0 ? `（约 ${diffMin} 分钟后）` : '（即将执行）';
+      html += `<div><span style="color:var(--text-muted)">下次执行</span><br><span style="font-family:var(--font-mono);color:var(--accent);font-weight:600">${timeStr}</span><span style="font-size:.72rem;color:var(--text-muted)">${hint}</span></div>`;
+    }
+    if (sched.last_run_at) {
+      html += `<div><span style="color:var(--text-muted)">上次自动执行</span><br><span style="font-family:var(--font-mono)">${fmtTime(sched.last_run_at)}</span></div>`;
+    }
+    html += `<div><span style="color:var(--text-muted)">执行规则</span><br><span style="font-family:var(--font-mono)">每 ${document.getElementById('parserSchedulerInterval').value || 30} 分钟 · 从每小时第 ${document.getElementById('parserSchedulerMinute').value || 0} 分起</span></div>`;
+    html += '</div>';
+    el.innerHTML = html;
+  } catch(e) {}
+}
+
+async function saveParserConfig() {
+  const concurrency = parseInt(document.getElementById('parserConcurrency').value, 10);
+  if (Number.isNaN(concurrency) || concurrency < 1 || concurrency > 2) {
+    toast('并发数仅支持 1～2。超过 2 容易触发模型接口限流并导致解析失败', 'error');
+    return;
+  }
+  const data = {
+    input_path: document.getElementById('parserInput').value.trim(),
+    output_path: document.getElementById('parserOutput').value.trim(),
+    model: document.getElementById('parserModel').value.trim(),
+    ark_base_url: document.getElementById('parserBaseUrl').value.trim(),
+    concurrency,
+  };
+  const key = document.getElementById('parserApiKey').value.trim();
+  if (key) data.ark_api_key = key;
+  try {
+    await api('/api/parser/config', { method: 'PUT', body: JSON.stringify(data) });
+    toast('解析配置已保存', 'success');
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function saveParserScheduler() {
+  const data = {
+    enabled: document.getElementById('parserSchedulerEnabled').checked,
+    interval_minutes: parseInt(document.getElementById('parserSchedulerInterval').value) || 60,
+    minute: parseInt(document.getElementById('parserSchedulerMinute').value) || 0,
+  };
+  try {
+    await api('/api/parser/scheduler', { method: 'PUT', body: JSON.stringify(data) });
+    toast('解析定时配置已保存', 'success');
+    await updateParserSchedulerStatus();
+    updateParserStatus();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function triggerParse() {
+  try {
+    const res = await api('/api/parser/run', { method: 'POST', body: '{}' });
+    toast(res.message || '已触发简历解析', res.queued ? 'info' : 'success');
+    pollParseStatus();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+function pollParseStatus() {
+  if (parsePollTimer) clearInterval(parsePollTimer);
+  parsePollTimer = setInterval(async () => {
+    try {
+      const st = await api('/api/parser/status');
+      if (document.getElementById('page-parser').style.display !== 'none') {
+        applyParserStatusUI(st);
+      } else {
+        await updateParserStatus();
+      }
+      if (st.status !== 'running') {
+        clearInterval(parsePollTimer);
+        parsePollTimer = null;
+        if (document.getElementById('page-parser').style.display !== 'none') {
+          await refreshParserPage();
+        }
+        if (document.getElementById('page-parse-records').style.display !== 'none') loadParseRecords();
+      }
+    } catch(e) {}
+  }, 2000);
+}
+
+function renderParserProgress(p, st) {
+  const pending = p.pending || 0;
+  const parsedNow = (p.ok || 0) + (p.failed || 0);
+  const pct = pending > 0 ? Math.min(100, Math.round((parsedNow / pending) * 100)) : 100;
+  const chunkSize = p.chunk_size || 0;
+  const chunkIn = p.chunk_in_progress || 0;
+  const chunksDone = p.chunks_done || 0;
+  document.getElementById('parserProgressWrap').style.display = '';
+  let countText = pending > 0 ? `本次解析 ${parsedNow} / ${pending}` : '本次无需解析';
+  if (chunkSize > 0 && pending > 0) {
+    countText += ` · 第 ${chunksDone + 1} 组 ${chunkIn}/${chunkSize}`;
+  }
+  document.getElementById('parserProgressCount').textContent = countText;
+  document.getElementById('parserProgressPct').textContent = `${pct}%`;
+  document.getElementById('parserProgressFill').style.width = `${pct}%`;
+  document.getElementById('parserStatOk').textContent = p.ok || 0;
+  document.getElementById('parserStatFail').textContent = p.failed || 0;
+  const q = st && st.queue_size ? st.queue_size : 0;
+  document.getElementById('parserQueueInfo').textContent =
+    q > 0 ? `待执行 ${q} 个合并任务` : '';
+}
+
+function renderParserActiveFiles(st) {
+  const wrap = document.getElementById('parserActiveWrap');
+  const line1 = document.getElementById('parserActiveLine1');
+  const line2 = document.getElementById('parserActiveLine2');
+  if (!wrap || !line1 || !line2) return;
+
+  let files = [];
+  if (st && st.status === 'running') {
+    if (Array.isArray(st.active_files) && st.active_files.length) {
+      files = st.active_files;
+    } else if (st.progress) {
+      if (Array.isArray(st.progress.active_files) && st.progress.active_files.length) {
+        files = st.progress.active_files;
+      } else if (st.progress.current_file) {
+        files = [st.progress.current_file];
+      }
+    }
+  }
+
+  if (!files.length) {
+    wrap.style.display = 'none';
+    line1.textContent = '';
+    line2.textContent = '';
+    line1.title = '';
+    line2.title = '';
+    return;
+  }
+
+  wrap.style.display = '';
+  line1.textContent = files[0] || '';
+  line1.title = files[0] || '';
+  if (files[1]) {
+    line2.style.display = '';
+    line2.textContent = files[1];
+    line2.title = files[1];
+  } else {
+    line2.style.display = 'none';
+    line2.textContent = '';
+    line2.title = '';
+  }
+}
+
+function applyParserStatusUI(st) {
+  const dot = document.getElementById('parserDot');
+  const statusText = document.getElementById('parserStatusText');
+  const detail = document.getElementById('parserDetail');
+  const progressWrap = document.getElementById('parserProgressWrap');
+  const btn = document.getElementById('parseBtn');
+  if (!dot || !statusText || !detail) return;
+
+  dot.className = 'dot ' + (st.status || 'idle');
+  if (st.status === 'running') {
+    dot.style.background = 'var(--warning)';
+    statusText.textContent = st.queue_size > 0 ? '解析中（待续跑）' : '解析中';
+  } else if (st.status === 'error') {
+    dot.style.background = '';
+    statusText.textContent = '出错';
+  } else {
+    dot.style.background = '';
+    statusText.textContent = '空闲';
+  }
+
+  if (st.status === 'running' && st.progress) {
+    renderParserProgress(st.progress, st);
+    renderParserActiveFiles(st);
+    detail.textContent = st.message || '准备中...';
+  } else if (st.status === 'running' && st.queue_size > 0) {
+    renderParserActiveFiles(st);
+    progressWrap.style.display = 'none';
+    detail.textContent = st.message || `队列等待 ${st.queue_size} 个任务`;
+  } else {
+    progressWrap.style.display = 'none';
+    renderParserActiveFiles({ status: 'idle' });
+    const fill = document.getElementById('parserProgressFill');
+    if (fill) fill.style.width = '0%';
+    detail.textContent = st.message || '点击「手动解析」开始解析简历';
+  }
+
+  if (btn) {
+    btn.disabled = st.status === 'running';
+    btn.innerHTML = st.status === 'running' ? '⏳ 解析中...' : '▶ 手动解析';
+  }
+
+  updateParserSchedulerBannerOnPage(st);
+  updateParserStatsBar(st);
+}
+
+function updateParserSchedulerBannerOnPage(st) {
+  const schedDot = document.getElementById('parserSchedDot');
+  const schedStatusText = document.getElementById('parserSchedStatusText');
+  const schedDetail = document.getElementById('parserSchedDetail');
+  if (!schedDot || !schedStatusText || !schedDetail) return;
+
+  const sched = st.scheduler || {};
+  if (sched.enabled) {
+    schedDot.className = 'dot idle';
+    schedDot.style.background = 'var(--success)';
+    schedStatusText.textContent = '定时解析已启用';
+    let detail = '';
+    if (sched.next_run_at) {
+      const next = new Date(sched.next_run_at);
+      const diffMin = Math.floor((next - new Date()) / 60000);
+      if (diffMin > 0) {
+        detail += `下次执行: ${fmtTime(sched.next_run_at)}（约 ${diffMin} 分钟后）`;
+      } else {
+        detail += `下次执行: ${fmtTime(sched.next_run_at)}（即将执行）`;
+      }
+    }
+    if (sched.last_run_at) {
+      detail += (detail ? '  ·  ' : '') + `上次自动执行: ${fmtTime(sched.last_run_at)}`;
+    }
+    schedDetail.textContent = detail || '等待计算下次执行时间...';
+  } else {
+    schedDot.className = 'dot idle';
+    schedDot.style.background = '';
+    schedStatusText.textContent = '定时解析未启用';
+    schedDetail.textContent = '前往「设置 → 定时任务设置」开启';
+  }
+}
+
+function updateParserStatsBar(st) {
+  const bar = document.getElementById('parserStatsBar');
+  if (!bar) return;
+  const stats = st.stats || { total: 0, ok: 0, failed: 0 };
+  const runLabel = st.status === 'running'
+    ? (st.queue_size > 0 ? '解析中（排队）' : '解析中...')
+    : st.status === 'error' ? '出错' : '空闲';
+  const runClass = st.status === 'running' ? 'warning' : st.status === 'error' ? '' : 'success';
+  bar.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">累计解析</div>
+      <div class="stat-value accent">${stats.total || 0}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">解析成功</div>
+      <div class="stat-value success">${stats.ok || 0}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">解析失败</div>
+      <div class="stat-value">${stats.failed || 0}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">运行状态</div>
+      <div class="stat-value ${runClass}" style="font-size:1rem">${runLabel}</div>
+    </div>
+  `;
+}
+
+function parsePushStatusTag(status) {
+  if (!status) return '<span style="color:var(--text-muted)">—</span>';
+  const map = {
+    pending: ['待推送', 'tag-pending'],
+    pushing: ['推送中', 'tag-pending'],
+    success: ['推送成功', 'tag-matched'],
+    failed: ['推送失败', 'tag-skipped'],
+    skipped: ['已跳过', 'tag-pending'],
+  };
+  const pair = map[status] || [status, ''];
+  return `<span class="tag ${pair[1]}">${esc(pair[0])}</span>`;
+}
+
+function renderParseRecordRow(r) {
+  const parseOk = r.status.startsWith('成功');
+  const parseTag = parseOk
+    ? '<span class="tag tag-matched">成功</span>'
+    : '<span class="tag tag-skipped">' + esc(r.status) + '</span>';
+  const canRetry = !parseOk;
+  return `
+    <tr class="clickable" onclick="openParseDetail(${r.id})">
+      <td onclick="event.stopPropagation()">
+        <input type="checkbox" class="parse-select-failed" data-id="${r.id}"
+          ${canRetry ? '' : 'disabled'}
+          ${selectedParseRetryIds.has(r.id) ? 'checked' : ''}
+          onchange="toggleParseRetrySelect(${r.id}, this.checked, ${canRetry})">
+      </td>
+      <td class="subject" title="${esc(r.source_file)}">${esc(r.source_file)}</td>
+      <td>${esc(r.candidate_name || '—')}</td>
+      <td style="font-family:var(--font-mono);font-size:.76rem">${esc(r.account_name || '—')}</td>
+      <td style="font-family:var(--font-mono);font-size:.76rem">${esc(r.job_display_id || '—')}</td>
+      <td style="font-family:var(--font-mono);font-size:.76rem">${fmtTime(r.parsed_at)}</td>
+      <td>${parseTag}</td>
+      <td style="font-family:var(--font-mono);font-size:.76rem">${fmtTime(r.pushed_at)}</td>
+      <td>${parsePushStatusTag(r.push_status)}</td>
+    </tr>`;
+}
+
+function renderParsePushMeta(r) {
+  if (!r.push_status) return '';
+  let html = `<div class="detail-section"><h4>推送信息</h4><div class="detail-grid">
+    <div class="label">推送状态</div><div>${parsePushStatusTag(r.push_status)}</div>
+    <div class="label">推送时间</div><div>${fmtTime(r.pushed_at)}</div>`;
+  if (r.push_error) {
+    html += `<div class="label">推送结果</div><div>${esc(r.push_error)}</div>`;
+  }
+  if (r.push_batch_id) {
+    html += `<div class="label">推送批次</div><div><a href="#" style="color:var(--accent)" onclick="event.preventDefault();openPushDetail(${r.push_batch_id})">#${r.push_batch_id}</a></div>`;
+  }
+  html += '</div></div>';
+  return html;
+}
+
+async function refreshParserPage() {
+  try {
+    const st = await api('/api/parser/status');
+    applyParserStatusUI(st);
+    const rec = await api('/api/parser/records?per_page=8');
+    const tbody = document.getElementById('parserRecentRecords');
+    if (!tbody) return;
+    if (!rec.records.length) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:32px">暂无解析记录</td></tr>';
+    } else {
+      tbody.innerHTML = rec.records.map(r => renderParseRecordRow(r)).join('');
+    }
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+async function updateParserStatus() {
+  try {
+    const st = await api('/api/parser/status');
+    applyParserStatusUI(st);
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Parse Records
+// ═══════════════════════════════════════════════════════════
+async function loadParseRecords(page) {
+  if (page) parseRecordsPage = page;
+  const status = document.getElementById('parseFilterStatus').value;
+  const pushStatus = document.getElementById('parseFilterPushStatus').value;
+  const candidateName = document.getElementById('parseFilterName').value.trim();
+  const keyword = document.getElementById('parseFilterKeyword').value.trim();
+  let url = `/api/parser/records?page=${parseRecordsPage}&per_page=20`;
+  if (status) url += `&status=${status}`;
+  if (pushStatus) url += `&push_status=${encodeURIComponent(pushStatus)}`;
+  if (candidateName) url += `&candidate_name=${encodeURIComponent(candidateName)}`;
+  if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
+  url = appendDateParams(url, 'parseFilterDateFrom', 'parseFilterDateTo');
+  const data = await api(url);
+  const tbody = document.getElementById('parseRecordsBody');
+  if (!data.records.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:32px">暂无解析记录</td></tr>';
+  } else {
+    tbody.innerHTML = data.records.map(r => renderParseRecordRow(r)).join('');
+  }
+  updateParseRetryBtn();
+  updateParseRetrySelectAllHeader();
+  const pg = document.getElementById('parseRecordsPagination');
+  const { total, page: p, total_pages } = data;
+  let pagesHtml = '';
+  for (let i = 1; i <= total_pages; i++) {
+    pagesHtml += `<button class="page-btn ${i === p ? 'active' : ''}" onclick="loadParseRecords(${i})">${i}</button>`;
+  }
+  pg.innerHTML = `<span>共 ${total} 条记录</span><div class="page-btns">${pagesHtml}</div>`;
+}
+
+function debounceLoadParseRecords() {
+  clearTimeout(parseDebounceTimer);
+  parseDebounceTimer = setTimeout(() => { parseRecordsPage = 1; loadParseRecords(); }, 400);
+}
+
+function updateParseRetryBtn() {
+  const btn = document.getElementById('parseRetryBtn');
+  if (!btn) return;
+  btn.disabled = selectedParseRetryIds.size === 0;
+  btn.textContent = selectedParseRetryIds.size
+    ? `重新解析并推送 (${selectedParseRetryIds.size})`
+    : '重新解析并推送';
+}
+
+function updateParseRetrySelectAllHeader() {
+  const header = document.getElementById('parseRetrySelectAll');
+  if (!header) return;
+  const boxes = [...document.querySelectorAll('.parse-select-failed')].filter(el => !el.disabled);
+  if (!boxes.length) {
+    header.checked = false;
+    header.indeterminate = false;
+    header.disabled = true;
+    return;
+  }
+  header.disabled = false;
+  const checked = boxes.filter(el => el.checked).length;
+  header.checked = checked === boxes.length;
+  header.indeterminate = checked > 0 && checked < boxes.length;
+}
+
+function toggleParseRetrySelect(id, checked, canRetry) {
+  if (!canRetry) return;
+  if (checked) selectedParseRetryIds.add(id);
+  else selectedParseRetryIds.delete(id);
+  updateParseRetryBtn();
+  updateParseRetrySelectAllHeader();
+}
+
+function toggleParseRetrySelectAll(checked) {
+  document.querySelectorAll('.parse-select-failed').forEach(el => {
+    if (el.disabled) return;
+    el.checked = checked;
+    const id = parseInt(el.dataset.id, 10);
+    if (checked) selectedParseRetryIds.add(id);
+    else selectedParseRetryIds.delete(id);
+  });
+  updateParseRetryBtn();
+  updateParseRetrySelectAllHeader();
+}
+
+async function retrySelectedParseRecords() {
+  if (!selectedParseRetryIds.size) return;
+  const ids = Array.from(selectedParseRetryIds);
+  if (!confirm(`确定重新解析并推送选中的 ${ids.length} 条失败记录吗？`)) return;
+  const btn = document.getElementById('parseRetryBtn');
+  btn.disabled = true;
+  try {
+    const data = await api('/api/parser/records/retry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record_ids: ids }),
+    });
+    toast(data.message || `已提交 ${data.prepared_count || 0} 条重新解析`, data.parse_running ? 'info' : 'success');
+    selectedParseRetryIds.clear();
+    updateParseRetryBtn();
+    loadParseRecords();
+    if (document.getElementById('page-parser').style.display !== 'none') updateParserStatus();
+  } catch (e) {
+    toast(e.message, 'error');
+    updateParseRetryBtn();
+  }
+}
+
+async function openParseDetail(id) {
+  const data = await api(`/api/parser/records/${id}`);
+  const r = data.record;
+  document.getElementById('parseDetailTitle').textContent = r.source_file || '解析详情';
+  const body = document.getElementById('parseDetailBody');
+  let pushMeta = renderParsePushMeta(r);
+  if (!data.sections || !data.sections.length) {
+    body.innerHTML = pushMeta + `<p style="color:var(--text-muted)">${esc(r.status)}</p>`;
+  } else {
+    body.innerHTML = pushMeta + data.sections.map(sec => {
+      if (sec.type === 'fields') {
+        const fields = sec.fields.filter(f => f.value).map(f =>
+          `<div class="label">${esc(f.label)}</div><div>${esc(f.value)}</div>`
+        ).join('');
+        return fields ? `<div class="detail-section"><h4>${esc(sec.title)}</h4><div class="detail-grid">${fields}</div></div>` : '';
+      }
+      if (sec.type === 'array') {
+        const items = sec.items.map((item, idx) => {
+          const fields = item.filter(f => f.value).map(f =>
+            `<div class="label">${esc(f.label)}</div><div>${esc(f.value)}</div>`
+          ).join('');
+          return `<div class="detail-item-card"><div style="font-size:.72rem;color:var(--text-muted);margin-bottom:4px">#${idx + 1}</div><div class="detail-grid">${fields}</div></div>`;
+        }).join('');
+        return items ? `<div class="detail-section"><h4>${esc(sec.title)}</h4>${items}</div>` : '';
+      }
+      if (sec.type === 'list' && sec.value) {
+        return `<div class="detail-section"><h4>${esc(sec.title)}</h4><p>${esc(sec.value)}</p></div>`;
+      }
+      return '';
+    }).join('');
+  }
+  openModal('parseDetailModal');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Push Records
+// ═══════════════════════════════════════════════════════════
+async function loadPushConfig() {
+  const cfg = await api('/api/push/config');
+  document.getElementById('pushEnabled').value = cfg.enabled ? 'true' : 'false';
+  document.getElementById('pushApiUrl').value = cfg.api_url || '';
+  document.getElementById('pushHostHeader').value = cfg.host_header || '';
+  document.getElementById('pushTimeout').value = cfg.timeout || 60;
+  document.getElementById('pushBearerToken').value = cfg.bearer_token || '';
+  document.getElementById('pushVerifySsl').value = cfg.verify_ssl ? 'true' : 'false';
+}
+
+async function savePushConfig() {
+  const body = {
+    enabled: document.getElementById('pushEnabled').value === 'true',
+    api_url: document.getElementById('pushApiUrl').value.trim(),
+    host_header: document.getElementById('pushHostHeader').value.trim(),
+    timeout: parseInt(document.getElementById('pushTimeout').value, 10) || 60,
+    verify_ssl: document.getElementById('pushVerifySsl').value === 'true',
+  };
+  body.bearer_token = document.getElementById('pushBearerToken').value.trim();
+  try {
+    await api('/api/push/config', { method: 'PUT', body: JSON.stringify(body) });
+    toast('推送配置已保存', 'success');
+    loadPushConfig();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function loadPushSettings() {
+  await loadPushConfig();
+}
+
+async function loadPushRecordsPage() {
+  selectedPushIds.clear();
+  updatePushRetryBtn();
+  await loadPushRecords();
+}
+
+function updatePushRetryBtn() {
+  const btn = document.getElementById('pushRetryBtn');
+  btn.disabled = selectedPushIds.size === 0;
+  btn.textContent = selectedPushIds.size
+    ? `按最新租户重推 (${selectedPushIds.size})`
+    : '按最新租户重推';
+}
+
+function togglePushSelect(id, checked, isFailed) {
+  if (!isFailed) return;
+  if (checked) selectedPushIds.add(id);
+  else selectedPushIds.delete(id);
+  updatePushRetryBtn();
+}
+
+function togglePushSelectAll(checked) {
+  document.querySelectorAll('.push-select-failed').forEach(el => {
+    if (el.disabled) return;
+    el.checked = checked;
+    const id = parseInt(el.dataset.id, 10);
+    if (checked) selectedPushIds.add(id);
+    else selectedPushIds.delete(id);
+  });
+  updatePushRetryBtn();
+}
+
+async function loadPushRecords(page) {
+  if (page) pushRecordsPage = page;
+  const status = document.getElementById('pushFilterStatus').value;
+  let url = `/api/push/records?page=${pushRecordsPage}&per_page=20`;
+  if (status) url += `&status=${status}`;
+  url = appendDateParams(url, 'pushFilterDateFrom', 'pushFilterDateTo');
+  const data = await api(url);
+  const tbody = document.getElementById('pushRecordsBody');
+  const stats = data.stats || {};
+  document.getElementById('pushStatsText').textContent =
+    `累计 ${stats.total || 0} 批 · 成功 ${stats.success || 0} · 部分 ${stats.partial || 0} · 失败 ${stats.failed || 0}`;
+
+  if (!data.records.length) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--text-muted);padding:32px">暂无推送记录</td></tr>';
+  } else {
+    tbody.innerHTML = data.records.map(r => {
+      const canRetry = r.status === 'failed' || r.status === 'partial';
+      const rs = r.response_summary || {};
+      const statusTag = r.status === 'success'
+        ? '<span class="tag tag-matched">成功</span>'
+        : r.status === 'partial'
+          ? '<span class="tag tag-pending">部分成功</span>'
+        : r.status === 'pushing'
+          ? '<span class="tag tag-pending">推送中</span>'
+          : '<span class="tag tag-skipped">失败</span>';
+      const summaryText = formatPushSummary(rs, r.error_message);
+      const num = (v) => (v === null || v === undefined) ? '—' : v;
+      return `
+        <tr class="clickable" onclick="openPushDetail(${r.id})" style="cursor:pointer">
+          <td onclick="event.stopPropagation()">
+            <input type="checkbox" class="push-select-failed" data-id="${r.id}"
+              ${canRetry ? '' : 'disabled'}
+              ${selectedPushIds.has(r.id) ? 'checked' : ''}
+              onchange="togglePushSelect(${r.id}, this.checked, ${canRetry})">
+          </td>
+          <td style="font-family:var(--font-mono);font-size:.76rem">${fmtTime(r.pushed_at || r.created_at)}</td>
+          <td>${esc(r.tenant_code || '—')}</td>
+          <td>${r.candidate_count || 0}</td>
+          <td>${num(rs.created)}</td>
+          <td>${num(rs.updated)}</td>
+          <td>${num(rs.failed)}</td>
+          <td>${num(rs.skipped)}</td>
+          <td>${r.trigger_type === 'retry' ? '手动重推' : (r.trigger_type === 'manual' ? '手动推送' : '解析后自动')}</td>
+          <td>${statusTag}</td>
+          <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(summaryText)}">${esc(summaryText)}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  const pg = document.getElementById('pushRecordsPagination');
+  const { total, page: p, total_pages } = data;
+  let pagesHtml = total_pages > 1
+    ? `<label style="display:flex;align-items:center;gap:6px;font-size:.78rem"><input type="checkbox" onchange="togglePushSelectAll(this.checked)">全选失败</label>`
+    : '';
+  for (let i = 1; i <= total_pages; i++) {
+    pagesHtml += `<button class="page-btn ${i === p ? 'active' : ''}" onclick="loadPushRecords(${i})">${i}</button>`;
+  }
+  pg.innerHTML = `<span>共 ${total} 条记录</span><div class="page-btns">${pagesHtml}</div>`;
+}
+
+function formatPushSummary(rs, errorMessage) {
+  if (!rs || !rs.kind || rs.kind === 'unknown') {
+    return errorMessage || '—';
+  }
+  if (rs.kind === 'import_result') {
+    const parts = [`合计${rs.total ?? '—'}`, `新建${rs.created ?? 0}`, `更新${rs.updated ?? 0}`];
+    if (rs.failed) parts.push(`失败${rs.failed}`);
+    if (rs.skipped) parts.push(`跳过${rs.skipped}`);
+    if ((rs.failures || []).length) parts.push(`失败明细${rs.failures.length}条`);
+    return parts.join(' · ');
+  }
+  if (rs.kind === 'error') {
+    const base = rs.detail || errorMessage || '请求失败';
+    return rs.error_count ? `${base}（${rs.error_count}项校验错误）` : base;
+  }
+  return errorMessage || '—';
+}
+
+function renderPushFailures(rs) {
+  if (!rs || rs.kind !== 'import_result' || !(rs.failures || []).length) return '';
+  const items = rs.failures.map((f, i) => {
+    const fields = Object.entries(f).map(([k, v]) =>
+      `<div class="label">${esc(k)}</div><div>${esc(v === null || v === undefined ? '' : String(v))}</div>`
+    ).join('');
+    return `<div class="detail-item-card"><div style="font-size:.72rem;color:var(--text-muted);margin-bottom:4px">失败 #${i + 1}</div><div class="detail-grid">${fields}</div></div>`;
+  }).join('');
+  return `<div class="detail-section"><h4>失败明细 (${rs.failures.length})</h4>${items}</div>`;
+}
+
+function renderPushValidationErrors(rs) {
+  if (!rs || rs.kind !== 'error' || !(rs.errors || []).length) return '';
+  const items = rs.errors.map((e, i) => {
+    const loc = Array.isArray(e.loc) ? e.loc.join('.') : '';
+    return `<div class="detail-item-card"><div style="font-size:.72rem;color:var(--text-muted)">#${i + 1} ${esc(loc)}</div><div>${esc(e.msg || JSON.stringify(e))}</div></div>`;
+  }).join('');
+  return `<div class="detail-section"><h4>校验错误 (${rs.errors.length})</h4>${items}</div>`;
+}
+
+function candidateStatusTag(status, label) {
+  if (status === 'success') return `<span class="tag tag-matched">${esc(label || '成功')}</span>`;
+  if (status === 'skipped') return `<span class="tag tag-pending">${esc(label || '跳过')}</span>`;
+  if (status === 'failed') return `<span class="tag tag-skipped">${esc(label || '失败')}</span>`;
+  return `<span class="tag">${esc(label || '未知')}</span>`;
+}
+
+function renderCandidateResultsTable(items) {
+  if (!items || !items.length) {
+    return '<p style="color:var(--text-muted);font-size:.82rem">无候选人明细（可能未保存请求体）</p>';
+  }
+  const rows = items.map(c => `
+    <tr>
+      <td style="font-family:var(--font-mono);font-size:.76rem">${c.row}</td>
+      <td>${esc(c.name || '—')}</td>
+      <td style="font-family:var(--font-mono);font-size:.76rem">${esc(c.account_name || '—')}</td>
+      <td style="font-family:var(--font-mono);font-size:.76rem">${esc(c.phone || '—')}</td>
+      <td style="font-size:.76rem">${esc(c.email || '—')}</td>
+      <td>${esc(c.channel_nickname || '—')}</td>
+      <td>${candidateStatusTag(c.status, c.status_label)}</td>
+      <td style="font-size:.76rem;max-width:220px;word-break:break-word">${esc(c.reason || '—')}</td>
+    </tr>
+  `).join('');
+  return `
+    <div class="table-wrap" style="margin-top:8px">
+      <table>
+        <thead>
+          <tr>
+            <th>行号</th>
+            <th>姓名</th>
+            <th>邮箱名称</th>
+            <th>手机</th>
+            <th>邮箱</th>
+            <th>渠道昵称</th>
+            <th>结果</th>
+            <th>原因</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function openPushDetail(id) {
+  const data = await api(`/api/push/records/${id}`);
+  const r = data.record;
+  const rs = r.response_summary || {};
+  const candidates = data.candidate_results || [];
+  document.getElementById('pushDetailTitle').textContent = `推送详情 #${r.id}`;
+  const payload = r.request_payload ? JSON.stringify(r.request_payload, null, 2) : '—';
+  const response = r.response_body || '—';
+  const num = (v) => (v === null || v === undefined) ? '—' : v;
+  const hasPerItemFailures = (rs.failures || []).length > 0;
+  const hasValidationErrors = (rs.errors || []).length > 0;
+  const candidateHint = rs.kind === 'import_result' && !hasPerItemFailures && (rs.failed || 0) === 0
+    ? '接口未返回逐人明细，成功批次默认标记为成功'
+    : (hasValidationErrors ? '校验失败项已标注具体原因，其余为整批未入库' : '');
+  document.getElementById('pushDetailBody').innerHTML = `
+    <div class="detail-section">
+      <h4>批次概况</h4>
+      <div class="detail-grid" style="margin-bottom:16px">
+      <div class="label">状态</div><div>${esc(r.status)}</div>
+      <div class="label">租户名</div><div>${esc(r.tenant_code || '—')}</div>
+      <div class="label">租户ID</div><div style="font-family:var(--font-mono);font-size:.76rem">${esc(r.tenant_id || '—')}</div>
+      <div class="label">推送人数</div><div>${r.candidate_count || 0}</div>
+      <div class="label">HTTP</div><div>${r.response_status ?? '—'}</div>
+      <div class="label">尝试次数</div><div>${r.attempt_count || 1}</div>
+      <div class="label">接口合计</div><div>${num(rs.total)}</div>
+      <div class="label">新建</div><div>${num(rs.created)}</div>
+      <div class="label">更新</div><div>${num(rs.updated)}</div>
+      <div class="label">失败</div><div>${num(rs.failed)}</div>
+      <div class="label">跳过</div><div>${num(rs.skipped)}</div>
+      <div class="label">摘要</div><div>${esc(formatPushSummary(rs, r.error_message))}</div>
+      ${rs.request_id ? `<div class="label">request_id</div><div style="font-family:var(--font-mono);font-size:.72rem">${esc(rs.request_id)}</div>` : ''}
+        <div class="label">触发方式</div><div>${r.trigger_type === 'retry' ? '手动重推' : (r.trigger_type === 'manual' ? '手动推送' : '解析后自动')}</div>
+      </div>
+    </div>
+    <div class="detail-section">
+      <h4>候选人明细（${candidates.length} 人）</h4>
+      ${candidateHint ? `<p style="color:var(--text-muted);font-size:.76rem;margin:0 0 8px">${esc(candidateHint)}</p>` : ''}
+      ${renderCandidateResultsTable(candidates)}
+    </div>
+    ${renderPushFailures(rs)}
+    ${renderPushValidationErrors(rs)}
+    <details style="margin-top:12px">
+      <summary style="cursor:pointer;font-size:.82rem;color:var(--text-muted)">查看原始请求体 / 响应体</summary>
+      <div class="detail-section" style="margin-top:8px"><h4>请求体</h4><pre style="white-space:pre-wrap;font-size:.72rem;background:var(--bg-surface);padding:12px;border-radius:8px;max-height:240px;overflow:auto">${esc(payload)}</pre></div>
+      <div class="detail-section"><h4>响应体（原始 JSON）</h4><pre style="white-space:pre-wrap;font-size:.72rem;background:var(--bg-surface);padding:12px;border-radius:8px;max-height:180px;overflow:auto">${esc(typeof response === 'string' ? response : JSON.stringify(response, null, 2))}</pre></div>
+    </details>
+  `;
+  openModal('pushDetailModal');
+}
+
+async function retrySelectedPush() {
+  if (!selectedPushIds.size) return;
+  const ids = Array.from(selectedPushIds);
+  if (!confirm(`将使用「分配规则配置」中的最新租户名，重推选中的 ${ids.length} 条失败记录？`)) return;
+  try {
+    const res = await api('/api/push/retry', {
+      method: 'POST',
+      body: JSON.stringify({ ids, refresh_tenant: true }),
+    });
+    toast(res.message || '重推完成', 'success');
+    selectedPushIds.clear();
+    updatePushRetryBtn();
+    loadPushRecords();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function retryAllFailedPush() {
+  if (!confirm('将使用「分配规则配置」中的最新租户名，重推全部失败/部分成功记录？')) return;
+  try {
+    const res = await api('/api/push/retry-all-failed', {
+      method: 'POST',
+      body: JSON.stringify({ refresh_tenant: true }),
+    });
+    toast(res.message || '重推完成', 'success');
+    selectedPushIds.clear();
+    updatePushRetryBtn();
+    loadPushRecords();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Helpers
+// ═══════════════════════════════════════════════════════════
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d)) return iso.slice(0, 19);
+    return d.toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false });
+  } catch { return iso; }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Init
+// ═══════════════════════════════════════════════════════════
+refreshDashboard();
+// 定时刷新运行状态（用户在对应页面时）
+setInterval(() => {
+  const schedPage = document.getElementById('page-schedulers');
+  if (schedPage && schedPage.style.display !== 'none') {
+    updateSchedulerStatus();
+    updateParserSchedulerStatus();
+  }
+  const parserPage = document.getElementById('page-parser');
+  if (parserPage && parserPage.style.display !== 'none') {
+    updateParserStatus().then(async () => {
+      const st = await api('/api/parser/status').catch(() => ({}));
+      if (st.status === 'running' && !parsePollTimer) pollParseStatus();
+    });
+  }
+}, 5000);
+</script>
+
+</body>
+</html>

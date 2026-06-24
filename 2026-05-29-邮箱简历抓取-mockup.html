@@ -1,0 +1,496 @@
+<!doctype html>
+<!--
+---
+title: 邮箱简历附件自动抓取 · mockup
+date: 2026-05-29
+status: draft
+version: v1.1
+scope: 邮箱抓取简历
+author: 刘峰
+source_prd: 邮箱抓取简历/prd.md
+source_config: 邮箱抓取简历/config.yaml.example
+project_root: /Users/liufeng/Documents/项目/重构 2.0/邮箱抓取简历
+requirement_summary:
+  - config.yaml 的 accounts 列表支持多个邮箱，一次 run 按顺序逐个处理。
+  - 每账号独立 IMAP 凭证、password_env、download.path；全局共用标题正则与扩展名白名单。
+  - 去重键 (account_name, Message-ID)；每账号独立 watermark，首次运行不回溯。
+  - 手动 python main.py run 与 cron 共用同一入口；可选 --account 只跑单账号。
+  - 单账号 IMAP 失败时继续其余账号；任一失败则 exit 非零。
+deliverable_type: cli-script
+tags: [mockup, imap, resume, cron, cli, python, multi-account]
+---
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>邮箱简历附件自动抓取 · mockup</title>
+  <style>
+    :root {
+      --bg: #f6f7fb; --panel: #ffffff; --text: #15161a; --text-soft: #4f5664;
+      --muted: #737987; --line: #e4e7ef; --line-strong: #cfd5e3;
+      --primary: #3b34a4; --primary-soft: #eef0ff; --primary-line: #c8cdfa;
+      --success: #07885f; --success-soft: #eafaf3;
+      --warning: #a16207; --warning-soft: #fff7e6;
+      --danger: #dc2626; --danger-soft: #fff1f2;
+      --info: #0369a1; --info-soft: #eaf6ff;
+      --terminal-bg: #1e1e2e; --terminal-text: #cdd6f4;
+      --terminal-green: #a6e3a1; --terminal-yellow: #f9e2af; --terminal-blue: #89b4fa;
+      --shadow: 0 18px 50px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(15, 23, 42, 0.06);
+      --shadow-soft: 0 8px 26px rgba(15, 23, 42, 0.08);
+      --radius: 8px;
+      --font: "PingFang SC", -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      --mono: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.55; }
+    code { font-family: var(--mono); font-size: 12px; background: #f1f3f8; border: 1px solid #e6e9f1; padding: 2px 6px; border-radius: 4px; }
+    pre { margin: 0; white-space: pre-wrap; font-family: var(--mono); font-size: 12px; line-height: 1.65; }
+    table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-soft); }
+    th, td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); padding: 13px 14px; font-size: 13px; }
+    th { background: #f5f6fa; color: var(--text-soft); font-weight: 700; }
+    tr:last-child td { border-bottom: 0; }
+    .page { max-width: 1200px; margin: 0 auto; padding: 48px 44px 88px; }
+    h1 { font-size: 32px; line-height: 1.2; margin: 0 0 10px; font-weight: 700; }
+    h1 .accent { color: var(--primary); }
+    h2 { font-size: 20px; margin: 0; font-weight: 700; }
+    h3 { font-size: 15px; margin: 0 0 8px; font-weight: 700; }
+    .lead { color: var(--text-soft); font-size: 15px; max-width: 860px; margin-bottom: 0; }
+    .meta { color: var(--muted); font-size: 12px; margin-top: 16px; }
+    .toc { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; margin: 28px 0 30px; background: rgba(255,255,255,0.85); border: 1px solid var(--line); border-radius: var(--radius); position: sticky; top: 0; z-index: 10; backdrop-filter: blur(10px); }
+    .toc a { text-decoration: none; color: var(--text-soft); border: 1px solid transparent; padding: 7px 10px; border-radius: 6px; font-size: 12px; background: #fff; }
+    .toc a:hover { color: var(--primary); border-color: var(--primary-line); }
+    .section { margin-top: 48px; }
+    .section-head { border-bottom: 1px dashed var(--line-strong); padding-bottom: 14px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .tag { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; background: var(--primary-soft); color: var(--primary); font-size: 11px; font-weight: 700; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow-soft); }
+    .card.is-primary { border-color: var(--primary-line); background: linear-gradient(180deg, #fff, var(--primary-soft)); }
+    .card.is-muted { opacity: 0.72; }
+    .card-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+    .card-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .card-desc { color: var(--text-soft); font-size: 13px; margin: 0; }
+    .badge { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .badge-success { background: var(--success-soft); color: var(--success); }
+    .badge-warning { background: var(--warning-soft); color: var(--warning); }
+    .badge-info { background: var(--info-soft); color: var(--info); }
+    .badge-danger { background: var(--danger-soft); color: var(--danger); }
+    .diagram { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 22px; box-shadow: var(--shadow-soft); overflow-x: auto; }
+    .diagram pre { color: #242936; font-size: 12px; }
+    .terminal { background: var(--terminal-bg); color: var(--terminal-text); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); font-family: var(--mono); font-size: 12px; line-height: 1.7; }
+    .terminal .prompt { color: var(--terminal-green); }
+    .terminal .cmd { color: #fff; }
+    .terminal .info { color: var(--terminal-blue); }
+    .terminal .ok { color: var(--terminal-green); }
+    .terminal .warn { color: var(--terminal-yellow); }
+    .terminal .err { color: #f38ba8; }
+    .terminal .dim { color: #6c7086; }
+    .flow-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+    @media (max-width: 1000px) { .flow-row { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .flow-row { grid-template-columns: 1fr; } }
+    .flow-step { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+    .flow-step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+    .flow-step-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+    .flow-step-desc { color: var(--text-soft); font-size: 12px; margin: 0; }
+    .callout { border-left: 4px solid var(--primary); background: var(--primary-soft); padding: 14px 16px; border-radius: 0 var(--radius) var(--radius) 0; margin: 16px 0; }
+    .callout strong { color: var(--primary); }
+    .callout-warn { border-left-color: var(--warning); background: var(--warning-soft); }
+    .file-tree { background: #fafbfd; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; font-family: var(--mono); font-size: 12px; line-height: 1.8; color: #303447; }
+    .compare-x { text-decoration: line-through; color: var(--muted); }
+    .account-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--info-soft); color: var(--info); font-size: 12px; font-weight: 600; margin: 2px 4px 2px 0; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>邮箱简历附件自动抓取 · <span class="accent">mockup</span></h1>
+      <p class="lead">
+        从<strong>多个</strong>企业邮箱 INBOX 定时/手动拉取应聘邮件，按标题正则识别后，将 PDF 等附件保存到<strong>各账号独立目录</strong>。
+        本文档说明整体架构、多账号配置、运行方式与交付形态——不是产品 UI 设计稿。
+      </p>
+      <div class="meta">
+        <div>status: draft · version: v1.1 · date: 2026-05-29 · author: 刘峰</div>
+        <div>project: <code>邮箱抓取简历/</code> · prd: <code>prd.md</code> · config: <code>config.yaml.example</code></div>
+      </div>
+    </header>
+
+    <nav class="toc">
+      <a href="#deliverable">交付形态</a>
+      <a href="#execution">触发方式</a>
+      <a href="#decisions">关键决策</a>
+      <a href="#multi-account">多邮箱</a>
+      <a href="#architecture">架构全景</a>
+      <a href="#flow">运行流程</a>
+      <a href="#example">真实示例</a>
+      <a href="#config">配置契约</a>
+      <a href="#storage">本地产物</a>
+      <a href="#deploy">部署方式</a>
+      <a href="#modules">模块划分</a>
+      <a href="#out-of-scope">不在范围</a>
+    </nav>
+
+    <section class="section" id="deliverable">
+      <div class="section-head">
+        <h2>§0 最终交付形态</h2>
+        <span class="tag">最重要</span>
+      </div>
+      <div class="callout">
+        <strong>结论：Python 命令行脚本 + cron，不是网站/App/安装包。</strong><br />
+        一次 <code>python main.py run</code> 按顺序处理 <code>accounts</code> 里配置的所有邮箱；cron 每小时调同一命令。成果在各账号的本地文件夹里。
+      </div>
+      <div class="card-grid" style="margin-top: 18px;">
+        <div class="card is-primary">
+          <div class="card-label">✅ v1 交付</div>
+          <div class="card-title">CLI + cron + 多账号 YAML</div>
+          <p class="card-desc">手动 <code>run</code> 或 cron 定时；多邮箱写在 <code>accounts</code>；SQLite 统一去重。</p>
+        </div>
+        <div class="card is-muted">
+          <div class="card-label compare-x">不是</div>
+          <div class="card-title">Web UI / 桌面 App</div>
+          <p class="card-desc">无浏览器界面、无 .app / dmg。改 config.yaml，看文件夹和日志。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="execution">
+      <div class="section-head"><h2>§1 两种触发方式（同一命令）</h2></div>
+      <table>
+        <thead><tr><th>模式</th><th>命令</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>手动立即执行</strong></td>
+            <td><code>python main.py run</code></td>
+            <td>立刻跑一轮，处理全部账号（或 <code>--account</code> 指定一个），跑完退出</td>
+          </tr>
+          <tr>
+            <td><strong>定时自动执行</strong></td>
+            <td>cron 调 <code>python main.py run</code></td>
+            <td>每小时整点 <code>0 * * * *</code>，逻辑与手动完全相同</td>
+          </tr>
+          <tr>
+            <td><strong>单账号调试</strong></td>
+            <td><code>python main.py run --account hr-boss</code></td>
+            <td>只连 config 里 <code>name: hr-boss</code> 那一个邮箱</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="terminal" style="margin-top: 16px;">
+        <div><span class="dim"># 手动：处理 accounts 下全部邮箱</span></div>
+        <div><span class="prompt">$</span> <span class="cmd">export IMAP_PASSWORD_HR='...' IMAP_PASSWORD_R2='...'</span></div>
+        <div><span class="prompt">$</span> <span class="cmd">python main.py run</span></div>
+        <div class="info">[14:00:01] ▶ 账号 hr-boss (hr@company.com) ... IMAP OK</div>
+        <div class="ok">[14:00:03] hr-boss: 扫描 3 封，命中 1，下载 1 → ~/Resumes/hr/20250529_...pdf</div>
+        <div class="info">[14:00:04] ▶ 账号 recruiter-2 (recruiter2@company.com) ... IMAP OK</div>
+        <div class="ok">[14:00:06] recruiter-2: 扫描 2 封，命中 0，下载 0</div>
+        <div class="dim">[14:00:06] 汇总: 2 账号成功，0 失败，共下载 1 个附件</div>
+        <br />
+        <div><span class="dim"># 某一账号密码错误时：跳过该账号，其余继续；exit code ≠ 0</span></div>
+        <div class="err">[14:00:04] ▶ 账号 recruiter-2 ... AUTH FAILED，跳过</div>
+        <div class="warn">[14:00:06] 汇总: 1 成功，1 失败</div>
+      </div>
+    </section>
+
+    <section class="section" id="decisions">
+      <div class="section-head"><h2>§2 已确认的关键决策</h2></div>
+      <table>
+        <thead><tr><th>决策点</th><th>选项</th><th>备注</th></tr></thead>
+        <tbody>
+          <tr><td>邮箱数量</td><td><strong>多账号（accounts 列表）</strong></td><td>一份 config，一次 run 顺序处理；v1 不并行</td></tr>
+          <tr><td>连接方式</td><td><strong>IMAP over SSL</strong></td><td>每账号独立 <code>password_env</code></td></tr>
+          <tr><td>扫描范围</td><td><strong>仅 INBOX</strong></td><td>每账号可写 <code>mailbox: INBOX</code></td></tr>
+          <tr><td>识别规则</td><td><strong>邮件标题正则（全局共用）</strong></td><td><code>subject_patterns</code> 对所有账号生效</td></tr>
+          <tr><td>附件筛选</td><td><strong>扩展名白名单（全局共用）</strong></td><td>默认 <code>.pdf</code></td></tr>
+          <tr><td>保存目录</td><td><strong>每账号独立 download.path</strong></td><td>如 <code>~/Resumes/hr</code> 与 <code>~/Resumes/recruiter2</code></td></tr>
+          <tr><td>文件命名</td><td><strong>{YYYYMMDD}_{原附件名}</strong></td><td>各账号目录内平铺存储</td></tr>
+          <tr><td>去重</td><td><strong>(account_name, Message-ID)</strong></td><td>SQLite 联合主键；账号间互不影响</td></tr>
+          <tr><td>watermark</td><td><strong>每账号独立</strong></td><td>首次运行不回溯该账号历史邮件</td></tr>
+          <tr><td>定时</td><td><strong>每小时 cron</strong></td><td><code>0 * * * *</code></td></tr>
+          <tr><td>失败策略</td><td><strong>单账号失败继续其余</strong></td><td>任一失败 → 进程 exit 非零</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section" id="multi-account">
+      <div class="section-head"><h2>§3 多邮箱方案 A</h2><span class="tag">accounts 列表</span></div>
+      <div class="diagram">
+        <pre>
+config.yaml
+├── accounts[]                    ← 用户主要编辑区
+│   ├── [0] name: hr-boss
+│   │       imap + password_env   ← IMAP_PASSWORD_HR
+│   │       download.path         ← ~/Resumes/hr
+│   └── [1] name: recruiter-2
+│           imap + password_env   ← IMAP_PASSWORD_R2
+│           download.path         ← ~/Resumes/recruiter2
+├── subject_patterns[]            ← 全局，所有账号共用
+├── attachment_extensions[]       ← 全局
+├── state.db_path                 ← 一个 SQLite，表内按 account_name 区分
+└── log.path
+        </pre>
+      </div>
+      <h3 style="margin: 20px 0 10px;">账号与目录对应关系</h3>
+      <table>
+        <thead><tr><th>name</th><th>邮箱</th><th>密码环境变量</th><th>简历目录</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="account-pill">hr-boss</span></td>
+            <td>hr@company.com</td>
+            <td><code>IMAP_PASSWORD_HR</code></td>
+            <td><code>/Users/liufeng/Resumes/hr/</code></td>
+          </tr>
+          <tr>
+            <td><span class="account-pill">recruiter-2</span></td>
+            <td>recruiter2@company.com</td>
+            <td><code>IMAP_PASSWORD_R2</code></td>
+            <td><code>/Users/liufeng/Resumes/recruiter2/</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout callout-warn" style="margin-top: 16px;">
+        <strong>只有 1 个邮箱时：</strong><code>accounts</code> 里只保留一项即可，与多账号同一套结构，无需改代码。
+      </div>
+    </section>
+
+    <section class="section" id="architecture">
+      <div class="section-head"><h2>§4 上下游全景图</h2></div>
+      <div class="diagram">
+        <pre>
+  cron / 手动 run
+        │
+        ▼
+  ┌─────────────────────────────────────────────────────────────────┐
+  │  main.py run  ──▶  for account in accounts:  （顺序，不并行）       │
+  │                    │                                             │
+  │                    ├─▶ IMAP 连接该账号 INBOX                       │
+  │                    ├─▶ 跳过 (account, Message-ID) 已在 SQLite    │
+  │                    ├─▶ 标题正则匹配 → 下载到 account.download.path │
+  │                    ├─▶ 写入 SQLite + 更新该账号 watermark         │
+  │                    └─▶ 断开 IMAP → 下一账号                      │
+  └─────────────────────────────────────────────────────────────────┘
+        │                              │
+        ▼                              ▼
+  企业邮箱 × N                    本地目录 × N + processed.db + logs
+        </pre>
+      </div>
+      <div class="callout" style="margin-top: 16px;">
+        <strong>关键不变式：</strong>
+        (1) 只读邮箱，不改已读状态；
+        (2) 去重键 <code>(account_name, message_id)</code>；
+        (3) 每账号 watermark 独立，首次不回溯；
+        (4) 单账号失败不阻断其他账号。
+      </div>
+    </section>
+
+    <section class="section" id="flow">
+      <div class="section-head"><h2>§5 单次 run 流程</h2></div>
+      <div class="flow-row">
+        <div class="flow-step">
+          <div class="flow-step-num">1</div>
+          <div class="flow-step-title">加载配置</div>
+          <p class="flow-step-desc">解析 accounts[]、全局正则；校验 name 唯一、env 存在</p>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">2</div>
+          <div class="flow-step-title">遍历账号</div>
+          <p class="flow-step-desc">按列表顺序；<code>--account</code> 时只跑一个</p>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">3</div>
+          <div class="flow-step-title">IMAP 拉信</div>
+          <p class="flow-step-desc">该账号 INBOX，watermark 之后的新邮件</p>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">4</div>
+          <div class="flow-step-title">匹配 & 下载</div>
+          <p class="flow-step-desc">标题正则 + 扩展名白名单 → 该账号 download.path</p>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">5</div>
+          <div class="flow-step-title">记录去重</div>
+          <p class="flow-step-desc">SQLite 写入 (account_name, message_id)</p>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">6</div>
+          <div class="flow-step-title">汇总退出</div>
+          <p class="flow-step-desc">每账号摘要 + 总摘要；有失败则 exit ≠ 0</p>
+        </div>
+      </div>
+      <h3 style="margin: 28px 0 12px;">分支逻辑</h3>
+      <table>
+        <thead><tr><th>条件</th><th>动作</th></tr></thead>
+        <tbody>
+          <tr><td><code>(account, Message-ID)</code> 已存在</td><td>跳过该邮件</td></tr>
+          <tr><td>标题未命中正则</td><td>跳过（v1 仍标记已处理，避免重复扫描）</td></tr>
+          <tr><td>命中但无白名单附件</td><td>标记已处理</td></tr>
+          <tr><td>本地同名文件</td><td>追加 <code>_2</code>、<code>_3</code></td></tr>
+          <tr><td>当前账号 IMAP 失败</td><td>记日志，<strong>继续下一账号</strong></td></tr>
+          <tr><td>任一账号失败</td><td>全部跑完后 exit code 非零</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section" id="example">
+      <div class="section-head"><h2>§6 真实示例（BOSS 直聘 · 账号 hr-boss）</h2></div>
+      <table>
+        <thead><tr><th>环节</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>账号</td><td><code>hr-boss</code> → 保存到 <code>~/Resumes/hr/</code></td></tr>
+          <tr>
+            <td>邮件</td>
+            <td>
+              标题：<code>刘烨 | 7年，应聘 AI产品经理 | 北京30-40K【BOSS直聘】</code><br />
+              附件：<code>【AI产品经理_北京_30-40K】刘烨_7年.pdf</code>
+            </td>
+          </tr>
+          <tr><td>正则</td><td><code>.*应聘.*【BOSS直聘】</code> → <span class="badge badge-success">命中</span></td></tr>
+          <tr><td>保存为</td><td><code>~/Resumes/hr/20250529_【AI产品经理_北京_30-40K】刘烨_7年.pdf</code></td></tr>
+          <tr><td>去重键</td><td><code>(hr-boss, &lt;Message-ID&gt;)</code></td></tr>
+          <tr><td>下次 run</td><td>同一账号同一 Message-ID → <span class="badge badge-info">跳过</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section" id="config">
+      <div class="section-head"><h2>§7 配置契约 (config.yaml)</h2></div>
+      <div class="diagram">
+        <pre>accounts:
+  - name: hr-boss
+    imap:
+      host: imap.exmail.qq.com
+      port: 993
+      ssl: true
+      username: hr@company.com
+      password_env: IMAP_PASSWORD_HR      # export IMAP_PASSWORD_HR='...'
+    mailbox: INBOX
+    download:
+      path: /Users/liufeng/Resumes/hr
+
+  - name: recruiter-2
+    imap:
+      host: imap.exmail.qq.com
+      port: 993
+      ssl: true
+      username: recruiter2@company.com
+      password_env: IMAP_PASSWORD_R2
+    mailbox: INBOX
+    download:
+      path: /Users/liufeng/Resumes/recruiter2
+
+subject_patterns:                         # 全局，所有账号共用
+  - ".*应聘.*【BOSS直聘】"
+  - ".*应聘.*"
+
+attachment_extensions:
+  - ".pdf"
+
+state:
+  db_path: ./data/processed.db
+
+log:
+  path: ./logs/resume-fetch.log</pre>
+      </div>
+      <p style="color: var(--text-soft); font-size: 13px; margin-top: 12px;">
+        完整模板见项目内 <code>config.yaml.example</code>。用户复制为 <code>config.yaml</code> 后主要改 <strong>accounts</strong> 里各账号的 IMAP 与 <strong>download.path</strong>。
+      </p>
+    </section>
+
+    <section class="section" id="storage">
+      <div class="section-head"><h2>§8 运行后本地有什么？</h2></div>
+      <div class="file-tree">
+邮箱抓取简历/
+├── config.yaml              ← 从 config.yaml.example 复制
+├── main.py                  ← python main.py run
+├── config.yaml.example
+├── src/ ...
+├── data/
+│   └── processed.db         ← 所有账号共用；表内按 account_name 区分
+└── logs/
+    └── resume-fetch.log
+
+~/Resumes/
+├── hr/                      ← 账号 hr-boss 的 download.path
+│   └── 20250529_【AI产品经理_北京_30-40K】刘烨_7年.pdf
+└── recruiter2/              ← 账号 recruiter-2 的 download.path
+    └── ...
+      </div>
+      <h3 style="margin: 20px 0 10px;">SQLite：processed_emails</h3>
+      <table>
+        <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>account_name</td><td>TEXT</td><td>配置里 accounts[].name</td></tr>
+          <tr><td>message_id</td><td>TEXT</td><td>RFC Message-ID</td></tr>
+          <tr><td colspan="3"><em>主键：(account_name, message_id)</em></td></tr>
+          <tr><td>subject</td><td>TEXT</td><td>邮件标题</td></tr>
+          <tr><td>mail_date</td><td>TEXT</td><td>邮件日期</td></tr>
+          <tr><td>processed_at</td><td>TEXT</td><td>处理时间</td></tr>
+          <tr><td>saved_files</td><td>TEXT</td><td>JSON 路径列表</td></tr>
+        </tbody>
+      </table>
+      <h3 style="margin: 20px 0 10px;">SQLite：watermarks（每账号一条）</h3>
+      <table>
+        <thead><tr><th>字段</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>account_name PK</td><td>账号标识</td></tr>
+          <tr><td>since_timestamp / since_uid</td><td>首次 run 建立的基准，不回溯更早邮件</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section" id="deploy">
+      <div class="section-head"><h2>§9 部署三步走</h2></div>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-label">Step 1</div>
+          <div class="card-title">配置</div>
+          <p class="card-desc"><code>cp config.yaml.example config.yaml</code><br />填写 accounts、各 download.path</p>
+        </div>
+        <div class="card">
+          <div class="card-label">Step 2</div>
+          <div class="card-title">手动验证</div>
+          <p class="card-desc">注入各账号 password_env<br /><code>python main.py run</code></p>
+        </div>
+        <div class="card">
+          <div class="card-label">Step 3</div>
+          <div class="card-title">注册 cron</div>
+          <p class="card-desc">cron 里写齐所有 env + <code>main.py run</code></p>
+        </div>
+      </div>
+      <div class="terminal" style="margin-top: 16px;">
+        <div><span class="dim"># crontab — 多账号需注入多个环境变量</span></div>
+        <div><span class="cmd">0 * * * * cd /path/to/邮箱抓取简历 && IMAP_PASSWORD_HR='***' IMAP_PASSWORD_R2='***' python3 main.py run >> logs/cron.log 2>&1</span></div>
+      </div>
+    </section>
+
+    <section class="section" id="modules">
+      <div class="section-head"><h2>§10 模块划分</h2></div>
+      <table>
+        <thead><tr><th>模块</th><th>职责</th><th>多账号相关</th></tr></thead>
+        <tbody>
+          <tr><td>Config Loader</td><td>解析 accounts[]，校验 name 唯一、必填项</td><td>返回账号列表 + 全局规则</td></tr>
+          <tr><td>Processed Mail Store</td><td>SQLite 去重、watermark</td><td>键含 account_name</td></tr>
+          <tr><td>IMAP Mail Fetcher</td><td>每账号实例化，拉 INBOX</td><td>一账号一连接，顺序执行</td></tr>
+          <tr><td>Subject Matcher / Attachment Filter</td><td>全局规则</td><td>所有账号共用</td></tr>
+          <tr><td>Attachment Downloader</td><td>写入该账号 download.path</td><td>路径来自当前 account</td></tr>
+          <tr><td>Job Orchestrator</td><td><code>run [--account NAME]</code></td><td>外层 for 循环 + 失败继续</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section" id="out-of-scope">
+      <div class="section-head"><h2>§11 不在范围（v1）</h2></div>
+      <div class="card-grid">
+        <div class="card is-muted"><div class="card-title">Web / 桌面 App</div><p class="card-desc">纯 CLI</p></div>
+        <div class="card is-muted"><div class="card-title">并行连多个 IMAP</div><p class="card-desc">v1 顺序处理</p></div>
+        <div class="card is-muted"><div class="card-title">PDF 正文解析</div><p class="card-desc">只下载文件</p></div>
+        <div class="card is-muted"><div class="card-title">历史回溯</div><p class="card-desc">每账号首次不回扫</p></div>
+        <div class="card is-muted"><div class="card-title">Slack 通知</div><p class="card-desc">只看 log</p></div>
+      </div>
+    </section>
+
+    <footer style="margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px;">
+      v1.1 更新：多邮箱 accounts、手动 run、--account、联合去重 · 下一步：spec.md → 实现
+    </footer>
+  </div>
+</body>
+</html>

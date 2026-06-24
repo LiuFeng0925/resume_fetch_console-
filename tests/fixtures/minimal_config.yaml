@@ -1,0 +1,29 @@
+accounts:
+  - name: hr-boss
+    imap:
+      host: imap.example.com
+      port: 993
+      ssl: true
+      username: hr@example.com
+      password: secret1
+    mailbox: INBOX
+    download:
+      path: /tmp/resumes/hr
+  - name: recruiter-2
+    imap:
+      host: imap.example.com
+      port: 993
+      ssl: true
+      username: r2@example.com
+      password_env: IMAP_PASSWORD_R2
+    mailbox: INBOX
+    download:
+      path: /tmp/resumes/r2
+subject_patterns:
+  - ".*应聘.*"
+attachment_extensions:
+  - ".pdf"
+state:
+  db_path: ./data/processed.db
+log:
+  path: ./logs/resume-fetch.log
