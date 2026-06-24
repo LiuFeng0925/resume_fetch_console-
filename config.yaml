@@ -1,0 +1,194 @@
+accounts:
+- name: '18513007241'
+  job_display_id: B001
+  imap:
+    host: imap.163.com
+    port: 993
+    ssl: true
+    username: 18513007241@163.com
+    password: UMasK4AKcfrVB684
+  mailbox: INBOX
+  download:
+    path: /Users/admin/Desktop/resume
+  tenant_id: 00000000-0000-4000-a000-000000000002
+  tenant_code: taiying
+- name: brbc-recruit
+  job_display_id: ''
+  imap:
+    host: imap.brgroup.com
+    port: 993
+    ssl: true
+    username: brbc-recruit@brgroup.com
+    password: JBeZhrWgDQyvA8rN
+  mailbox: INBOX
+  download:
+    path: /Users/admin/Desktop/resume
+  tenant_id: 00000000-0000-4000-a000-000000000002
+  tenant_code: taiying
+- name: 王伟婷
+  imap:
+    host: imap.163.com
+    port: 993
+    ssl: true
+    username: 15011397202@163.com
+    password: BWn2rjWncwb7bD8A
+  mailbox: INBOX
+  download:
+    path: /Users/admin/Desktop/resume
+  job_display_id: B049
+  tenant_id: 00000000-0000-4000-a000-000000000002
+  tenant_code: taiying
+- name: 张政
+  imap:
+    host: imap.163.com
+    port: 993
+    ssl: true
+    username: 13145389666@163.com
+    password: DLbCTQ7NfXuktwFr
+  mailbox: INBOX
+  download:
+    path: /Users/admin/Desktop/resume
+  job_display_id: B006
+  tenant_id: 00000000-0000-4000-a000-000000000002
+  tenant_code: taiying
+- name: 杜涛
+  imap:
+    host: imap.163.com
+    port: 993
+    ssl: true
+    username: 15684772537@163.com
+    password: GHcCeS4iqU9DAyaX
+  mailbox: INBOX
+  download:
+    path: /Users/admin/Desktop/resume
+  job_display_id: B046
+  tenant_id: 00000000-0000-4000-a000-000000000002
+  tenant_code: taiying
+- name: 田恒睿
+  imap:
+    host: imap.163.com
+    port: 993
+    ssl: true
+    username: 19558763311@163.com
+    password: LJbQJamrHhWD9zjN
+  mailbox: INBOX
+  download:
+    path: /Users/admin/Desktop/resume
+  job_display_id: B012
+  tenant_id: 00000000-0000-4000-a000-000000000002
+  tenant_code: taiying
+- name: 侯明哲
+  imap:
+    host: imap.163.com
+    port: 993
+    ssl: true
+    username: 18138824727@163.com
+    password: CSbLCsZFjxWCfrPb
+  mailbox: INBOX
+  download:
+    path: /Users/admin/Desktop/resume
+  job_display_id: B042
+  tenant_id: 00000000-0000-4000-a000-000000000002
+  tenant_code: taiying
+- name: 安琦
+  imap:
+    host: imap.163.com
+    port: 993
+    ssl: true
+    username: 15634830161@163.com
+    password: ZMS3nWEckpecnLKT
+  mailbox: INBOX
+  download:
+    path: /Users/admin/Desktop/resume
+  job_display_id: B011
+  tenant_id: 00000000-0000-4000-a000-000000000002
+  tenant_code: taiying
+- name: 寻源测试用
+  imap:
+    host: imap.163.com
+    port: 993
+    ssl: true
+    username: 13159737639@163.com
+    password: WTeP2akyvJ7k64E5
+  mailbox: INBOX
+  download:
+    path: /Users/admin/Desktop/resume
+  tenant_id: 00000000-0000-4000-a000-000000000002
+  tenant_code: taiying
+  job_display_id: B032
+- name: 李欣雨
+  imap:
+    host: imap.163.com
+    port: 993
+    ssl: true
+    username: 13049533562@163.com
+    password: JZZiu5U5F574GbXZ
+  mailbox: INBOX
+  download:
+    path: /Users/admin/Desktop/resume
+  tenant_id: 00000000-0000-4000-a000-000000000002
+  tenant_code: taiying
+  job_display_id: B053
+- name: 马玉涵
+  imap:
+    host: imap.163.com
+    port: 993
+    ssl: true
+    username: 15705382243@163.com
+    password: PRdfNkLirbq5fw5a
+  mailbox: INBOX
+  download:
+    path: /Users/admin/Desktop/resume
+  tenant_id: 00000000-0000-4000-a000-000000000002
+  tenant_code: taiying
+  job_display_id: B054
+- name: 徐瑶瑶
+  imap:
+    host: imap.163.com
+    port: 993
+    ssl: true
+    username: 15705480092@163.com
+    password: XYQHBzK2CRNRF2wg
+  mailbox: INBOX
+  download:
+    path: /Users/admin/Desktop/resume
+  tenant_id: 00000000-0000-4000-a000-000000000002
+  tenant_code: taiying
+  job_display_id: B010
+subject_patterns:
+- (?=.*BOSS直聘)(?=.*泰安)
+attachment_extensions:
+- .pdf
+- .doc
+- .docx
+- .png
+- .jpg
+- .jpeg
+state:
+  db_path: ./data/processed.db
+log:
+  path: ./logs/resume-fetch.log
+parser:
+  input_path: /Users/admin/Desktop/resume
+  output_path: /Users/admin/Desktop/resume-output
+  archive_path: /Users/admin/Desktop/resume-parsed
+  recursive: false
+  ark_api_key: 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
+  ark_base_url: https://openrouter.ai/api/v1
+  model: qwen/qwen-plus
+  concurrency: 2
+  request_timeout: 60
+  max_retries: 1
+  file_attempts: 2
+  text_truncate: 6000
+  chunk_size: 10
+push:
+  enabled: true
+  api_url: https://101.201.72.152/taiying/api/portal/open/candidates/import
+  host_header: baicai.resultscloud.com
+  bearer_token: q2jW-vYzNqqSv0DITGWKz3CnY7IhaybrwrPwlgwCcSM
+  verify_ssl: false
+  timeout: 60
+  success_status_codes:
+  - 200
+  - 201
