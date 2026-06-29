@@ -116,9 +116,9 @@ class ImapMailClient:
 
     def connect(self) -> None:
         if self._ssl:
-            self._conn = imaplib.IMAP4_SSL(self._host, self._port)
+            self._conn = imaplib.IMAP4_SSL(self._host, self._port, timeout=120)
         else:
-            self._conn = imaplib.IMAP4(self._host, self._port)
+            self._conn = imaplib.IMAP4(self._host, self._port, timeout=120)
         assert self._conn is not None
         self._conn.login(self._username, self._password)
         send_imap_id(self._conn, self._username)

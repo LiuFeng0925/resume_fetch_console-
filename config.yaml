@@ -161,13 +161,13 @@ accounts:
     port: 993
     ssl: true
     username: 15650223855@163.com
-    password: CCemQeGgMnHNC5Pq
+    password: FZhgiFJMwCUnDhnV
   mailbox: INBOX
   download:
     path: /Users/admin/Desktop/resume
   tenant_id: 00000000-0000-4000-a000-000000000002
   tenant_code: taiying
-  job_display_id: B076
+  job_display_id: B080
 subject_patterns:
 - (?=.*BOSS直聘)(?=.*泰安)
 attachment_extensions:

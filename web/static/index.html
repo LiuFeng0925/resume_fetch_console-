@@ -702,6 +702,34 @@ tr.clickable:hover { background: var(--bg-hover); }
 .alloc-read-val.mono { font-family: var(--font-mono); font-size: .78rem; color: var(--text-secondary); }
 .alloc-read-val.empty { color: var(--text-muted); font-style: italic; }
 
+/* ── Fetch Progress Panel ─────────────────── */
+#fetchProgressCard { border-left: 3px solid var(--accent); }
+.pulse-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); display: inline-block;
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(79,122,240,.4); }
+  50% { opacity: .6; box-shadow: 0 0 0 5px rgba(79,122,240,0); }
+}
+.progress-status {
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:.78rem; padding:2px 10px; border-radius:20px;
+  font-weight:500;
+}
+.progress-status .ps-dot {
+  width:6px; height:6px; border-radius:50%; display:inline-block;
+}
+.progress-pending   { background: var(--bg-hover); color: var(--text-muted); }
+.progress-pending .ps-dot { background: var(--text-muted); }
+.progress-running   { background: var(--accent-muted); color: var(--accent); }
+.progress-running .ps-dot { background: var(--accent); animation: pulse-glow 1s infinite; }
+.progress-done      { background: var(--success-muted); color: var(--success); }
+.progress-done .ps-dot { background: var(--success); }
+.progress-error     { background: var(--danger-muted); color: var(--danger); }
+.progress-error .ps-dot { background: var(--danger); }
+
 /* ── Responsive ─────────────────────────────────── */
 @media (max-width: 768px) {
   .sidebar { display: none; }
@@ -814,6 +842,31 @@ tr.clickable:hover { background: var(--bg-hover); }
       <!-- Stats -->
       <div class="stats-bar" id="statsBar">
         <!-- 动态填充 -->
+      </div>
+
+      <!-- Fetch Progress Panel -->
+      <div class="card" id="fetchProgressCard" style="margin-bottom:16px;display:none">
+        <div class="card-header">
+          <h3 style="display:flex;align-items:center;gap:8px">
+            <span class="pulse-dot" id="progressPulse"></span>
+            收取进度
+          </h3>
+          <span style="font-size:.78rem;color:var(--text-muted)" id="progressSubtitle">实时追踪各账号执行状态</span>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table style="table-layout:fixed">
+            <thead>
+              <tr>
+                <th style="width:28%">账号</th>
+                <th style="width:15%">状态</th>
+                <th style="width:43%">详情</th>
+                <th style="width:14%">耗时</th>
+              </tr>
+            </thead>
+            <tbody id="fetchProgressBody">
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Quick: Recent Records -->
@@ -1324,6 +1377,10 @@ tr.clickable:hover { background: var(--bg-hover); }
                   </th>
                   <th>文件名</th>
                   <th>候选人姓名</th>
+                  <th>年龄</th>
+                  <th>手机号</th>
+                  <th>微信号</th>
+                  <th>邮箱</th>
                   <th>账号</th>
                   <th>岗位编号</th>
                   <th>解析时间</th>
@@ -1577,6 +1634,12 @@ async function refreshDashboard() {
         </tr>
       `).join('');
     }
+    // Fetch Progress (if running)
+    try {
+      const prog = await api('/api/fetch-progress');
+      renderFetchProgress(prog);
+      if (prog.running) startFetchProgressPoll();
+    } catch(e2) {}
   } catch(e) {
     console.error(e);
   }
@@ -1644,6 +1707,9 @@ async function triggerSync(account) {
     toast('已触发收取任务', 'success');
     // Poll status
     pollStatus();
+    // Poll fetch progress
+    pollFetchProgress();
+    startFetchProgressPoll();
   } catch(e) {
     toast(e.message, 'error');
   }
@@ -1659,6 +1725,97 @@ function pollStatus() {
         clearInterval(pollTimer);
         pollTimer = null;
         refreshDashboard();
+      }
+    } catch(e) {}
+  }, 2000);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Fetch Progress (收取进度)
+// ═══════════════════════════════════════════════════════════
+let fetchProgressTimer = null;
+
+const PROGRESS_STATUS_MAP = {
+  pending:  { label: '等待中', cls: 'progress-pending' },
+  running:  { label: '执行中', cls: 'progress-running' },
+  done:     { label: '已完成', cls: 'progress-done' },
+  error:    { label: '出错',   cls: 'progress-error' },
+};
+
+function renderFetchProgress(data) {
+  const card = document.getElementById('fetchProgressCard');
+  const body = document.getElementById('fetchProgressBody');
+  const pulse = document.getElementById('progressPulse');
+
+  if (!data || !data.accounts || data.accounts.length === 0) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = '';
+  pulse.style.animationPlayState = data.running ? 'running' : 'paused';
+  if (!data.running) {
+    pulse.style.opacity = '0.3';
+  } else {
+    pulse.style.opacity = '1';
+  }
+
+  const now = Date.now();
+  body.innerHTML = data.accounts.map(a => {
+    const ps = PROGRESS_STATUS_MAP[a.status] || PROGRESS_STATUS_MAP.pending;
+    let detail = '';
+    if (a.status === 'running' && a.started_at) {
+      const elapsed = Math.round((now - new Date(a.started_at).getTime()) / 1000);
+      const m = Math.floor(elapsed / 60), s = elapsed % 60;
+      detail += `已运行 ${m}分${s.toString().padStart(2,'0')}秒`;
+    } else if (a.status === 'done') {
+      detail += `扫描 ${a.scanned} · 匹配 ${a.matched} · 下载 ${a.downloaded}`;
+    } else if (a.status === 'error') {
+      detail += `<span style="color:var(--danger);font-size:.74rem" title="${esc(a.error)}">${esc(a.error.substring(0,40))}</span>`;
+    }
+
+    // 耗时
+    let duration = '';
+    if (a.started_at) {
+      const start = new Date(a.started_at).getTime();
+      const end = a.finished_at ? new Date(a.finished_at).getTime() : now;
+      const sec = Math.round((end - start) / 1000);
+      const m = Math.floor(sec / 60), s = sec % 60;
+      duration = `${m}:${s.toString().padStart(2,'0')}`;
+    }
+
+    return `<tr>
+      <td style="font-family:var(--font-mono);font-size:.8rem;font-weight:500">${esc(a.name)}</td>
+      <td><span class="progress-status ${ps.cls}"><span class="ps-dot"></span>${ps.label}</span></td>
+      <td style="font-size:.78rem;color:var(--text-secondary)">${detail || '—'}</td>
+      <td style="font-family:var(--font-mono);font-size:.78rem;color:var(--text-muted)">${duration || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function pollFetchProgress() {
+  try {
+    const data = await api('/api/fetch-progress');
+    renderFetchProgress(data);
+  } catch(e) {}
+}
+
+function startFetchProgressPoll() {
+  if (fetchProgressTimer) clearInterval(fetchProgressTimer);
+  fetchProgressTimer = setInterval(async () => {
+    try {
+      const data = await api('/api/fetch-progress');
+      renderFetchProgress(data);
+      // 如果不再运行，停止轮询
+      if (!data.running) {
+        clearInterval(fetchProgressTimer);
+        fetchProgressTimer = null;
+        // 延迟3秒后隐藏面板
+        setTimeout(() => {
+          if (!fetchProgressTimer) {
+            const card = document.getElementById('fetchProgressCard');
+            if (card) card.style.display = 'none';
+          }
+        }, 3000);
       }
     } catch(e) {}
   }, 2000);
@@ -2627,6 +2784,12 @@ function renderParseRecordRow(r) {
     ? '<span class="tag tag-matched">成功</span>'
     : '<span class="tag tag-skipped">' + esc(r.status) + '</span>';
   const canRetry = !parseOk;
+  // 从 parsed_json 提取年龄/手机/微信/邮箱
+  const pj = r.parsed_json || {};
+  const ageVal = pj.age || (pj.birth_year ? (new Date().getFullYear() - pj.birth_year) : '');
+  const phoneVal = pj.phone || '';
+  const wechatVal = pj.wechat || '';
+  const emailVal = pj.email || '';
   return `
     <tr class="clickable" onclick="openParseDetail(${r.id})">
       <td onclick="event.stopPropagation()">
@@ -2637,6 +2800,10 @@ function renderParseRecordRow(r) {
       </td>
       <td class="subject" title="${esc(r.source_file)}">${esc(r.source_file)}</td>
       <td>${esc(r.candidate_name || '—')}</td>
+      <td style="text-align:center">${ageVal || '—'}</td>
+      <td style="font-family:var(--font-mono);font-size:.76rem">${phoneVal ? esc(phoneVal) : '—'}</td>
+      <td style="font-family:var(--font-mono);font-size:.76rem">${wechatVal ? esc(wechatVal) : '—'}</td>
+      <td style="font-family:var(--font-mono);font-size:.76rem">${emailVal ? esc(emailVal) : '—'}</td>
       <td style="font-family:var(--font-mono);font-size:.76rem">${esc(r.account_name || '—')}</td>
       <td style="font-family:var(--font-mono);font-size:.76rem">${esc(r.job_display_id || '—')}</td>
       <td style="font-family:var(--font-mono);font-size:.76rem">${fmtTime(r.parsed_at)}</td>
@@ -2703,7 +2870,7 @@ async function loadParseRecords(page) {
   const data = await api(url);
   const tbody = document.getElementById('parseRecordsBody');
   if (!data.records.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:32px">暂无解析记录</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--text-muted);padding:32px">暂无解析记录</td></tr>';
   } else {
     tbody.innerHTML = data.records.map(r => renderParseRecordRow(r)).join('');
   }

@@ -488,6 +488,21 @@ def get_status():
     return jsonify(state)
 
 
+@app.route("/api/fetch-progress", methods=["GET"])
+def get_fetch_progress():
+    """返回当前收取进度（每个账号的状态）。"""
+    progress_path = BASE_DIR / "data" / "fetch_progress.json"
+    if not progress_path.exists():
+        return jsonify({"running": False, "accounts": []})
+    try:
+        data = json.loads(progress_path.read_text(encoding="utf-8"))
+        # 判断是否还有进行中的账号
+        running = any(a.get("status") == "running" for a in data)
+        return jsonify({"running": running, "accounts": data})
+    except Exception as e:
+        return jsonify({"running": False, "accounts": [], "error": str(e)})
+
+
 @app.route("/api/sync", methods=["POST"])
 def trigger_sync():
     """手动触发收取"""

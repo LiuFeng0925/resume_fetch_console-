@@ -9,7 +9,7 @@ import re
 SCALAR_FIELDS = [
     ("name", "姓名"), ("channel_nickname", "渠道昵称"), ("job_display_id", "岗位编号"),
     ("tenant_id", "租户ID"), ("tenant_code", "租户名"),
-    ("gender", "性别"), ("birth_date", "出生日期"),
+    ("gender", "性别"), ("age", "年龄"), ("birth_date", "出生日期"),
     ("birth_year", "出生年份"), ("city", "当前城市"),
     ("political_status", "政治面貌"), ("marital_status", "婚姻状况"),
     ("phone", "手机"), ("email", "邮箱"), ("wechat", "微信"),
@@ -61,6 +61,7 @@ def normalize_gender(value) -> str:
 
 
 def derive_birth_year(data: dict, current_year: int):
+    """推导出生年份。优先级：显式 birth_year > age倒推 > birth_date提取年份。"""
     if data.get("birth_year") is not None:
         return data["birth_year"]
     age = data.get("age")
@@ -74,6 +75,47 @@ def derive_birth_year(data: dict, current_year: int):
         except ValueError:
             pass
     return None
+
+
+def cross_validate_birth_date(data: dict, current_year: int) -> str:
+    """交叉校验 birth_date 和 birth_year/age，返回可信的 birth_date。
+    
+    规则：
+    1) 如果 birth_date 年份与 age/birth_year 推导出的年份一致 → 保留 birth_date
+    2) 如果 birth_date 年份与推导年份不一致（模型幻觉） → 清空 birth_date，只保留年份
+    3) 如果只有 age 没有 birth_date → 从 age 推导年份，birth_date 留空（不编造月日）
+    4) 如果只有 birth_date 没有 age/birth_year → 信任 birth_date
+    """
+    birth_date = data.get("birth_date")
+    if not isinstance(birth_date, str) or not birth_date.strip():
+        return ""
+    birth_date = birth_date.strip()
+    
+    # 先算出可信的出生年份（优先用 age 倒推，因为简历上"22岁"是最直接的信息）
+    reliable_year = None
+    age = data.get("age")
+    if isinstance(age, int) and age > 0:
+        reliable_year = current_year - age
+    elif data.get("birth_year") is not None:
+        reliable_year = data["birth_year"]
+    
+    # 从 birth_date 中提取年份
+    try:
+        bd_year = int(birth_date[:4]) if len(birth_date) >= 4 else None
+    except ValueError:
+        bd_year = None
+    
+    # 交叉校验
+    if reliable_year is not None and bd_year is not None:
+        if bd_year == reliable_year:
+            # 年份一致 → 保留完整 birth_date
+            return birth_date
+        else:
+            # 年份不一致 → birth_date 是模型幻觉，清空（只保留年份级别的信息）
+            return ""
+    
+    # 没有可靠年份来源时，信任 birth_date 本身
+    return birth_date
 
 
 def _fmt_value(v):
@@ -345,7 +387,7 @@ def normalize_record(raw: dict, current_year: int) -> dict:
     raw = _coerce_llm_root(raw)
     rec = {}
     # channel_nickname、top_edu_school、top_edu_major、edu_note 由 to_excel_row 派生，跳过
-    _DERIVED = {"gender", "birth_year", "education",
+    _DERIVED = {"gender", "birth_year", "age", "education",
                 "channel_nickname", "top_edu_school", "top_edu_major", "edu_note",
                 "job_display_id", "tenant_id", "tenant_code"}
     for key, _ in SCALAR_FIELDS:
@@ -355,6 +397,15 @@ def normalize_record(raw: dict, current_year: int) -> dict:
     rec["gender"] = normalize_gender(raw.get("gender"))
     by = derive_birth_year(raw, current_year)
     rec["birth_year"] = by if by is not None else ""
+    rec["birth_date"] = cross_validate_birth_date(raw, current_year)
+    # age: 优先取模型返回的值，否则从 birth_year 倒推
+    raw_age = raw.get("age")
+    if isinstance(raw_age, int) and raw_age > 0:
+        rec["age"] = raw_age
+    elif isinstance(by, int) and by > 0:
+        rec["age"] = current_year - by
+    else:
+        rec["age"] = ""
     # 注意顺序：先算 edu_note（基于 raw 中模型原始 education），再覆盖 education
     rec["edu_note"] = derive_edu_note(raw)
     rec["education"] = derive_education(raw)

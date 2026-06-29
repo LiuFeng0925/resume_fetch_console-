@@ -321,7 +321,7 @@ class ParseRecordStore:
             f"""
             SELECT id, source_file, file_path, account_name, job_id, status,
                    excel_path, used_ocr, parsed_at, push_status, pushed_at,
-                   push_error, push_batch_id, candidate_name
+                   push_error, push_batch_id, candidate_name, parsed_json
             FROM parse_records{where_sql}
             ORDER BY parsed_at DESC
             LIMIT ? OFFSET ?

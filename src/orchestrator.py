@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 import logging
+import os
+from pathlib import Path
 from typing import Callable
 
 from src.config import AccountConfig, AppConfig
@@ -14,6 +17,83 @@ from src.store import ProcessedMailStore
 logger = logging.getLogger(__name__)
 
 FetcherFactory = Callable[[AccountConfig], MailFetcher]
+
+
+def _write_progress(accounts: list[dict]) -> None:
+    """将当前收取进度写入 JSON 文件，供 Web 控制面板实时读取。"""
+    _PROGRESS_DIR.mkdir(parents=True, exist_ok=True)
+    _PROGRESS_FILE.write_text(
+        json.dumps(accounts, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _init_progress(account_names: list[str]) -> None:
+    """初始化所有账号为「等待中」状态。"""
+    progress = [
+        {
+            "name": name,
+            "status": "pending",   # pending | running | done | error
+            "scanned": 0,
+            "matched": 0,
+            "downloaded": 0,
+            "error": "",
+            "started_at": "",
+            "finished_at": "",
+        }
+        for name in account_names
+    ]
+    _write_progress(progress)
+
+
+def _update_progress(
+    account_name: str,
+    status: str,
+    *,
+    scanned: int = 0,
+    matched: int = 0,
+    downloaded: int = 0,
+    error: str = "",
+) -> None:
+    """更新单个账号的进度。"""
+    if not _PROGRESS_FILE.exists():
+        return
+    try:
+        progress = json.loads(_PROGRESS_FILE.read_text(encoding="utf-8"))
+        for item in progress:
+            if item["name"] == account_name:
+                item["status"] = status
+                if scanned > 0:
+                    item["scanned"] = scanned
+                if matched > 0:
+                    item["matched"] = matched
+                if downloaded > 0:
+                    item["downloaded"] = downloaded
+                if error:
+                    item["error"] = error[:200]
+                if status == "running":
+                    import datetime as _dt
+                    item["started_at"] = _dt.datetime.now().astimezone().isoformat()
+                if status in ("done", "error"):
+                    import datetime as _dt
+                    item["finished_at"] = _dt.datetime.now().astimezone().isoformat()
+                break
+        _write_progress(progress)
+    except Exception:
+        pass
+
+
+def _clear_progress() -> None:
+    """清除进度文件。"""
+    if _PROGRESS_FILE.exists():
+        try:
+            _PROGRESS_FILE.unlink()
+        except OSError:
+            pass
+
+# 进度文件路径（供 Web 控制面板读取）
+_PROGRESS_DIR = Path(__file__).resolve().parent.parent / "data"
+_PROGRESS_FILE = _PROGRESS_DIR / "fetch_progress.json"
 
 
 def run_job(
@@ -32,8 +112,13 @@ def run_job(
         if not accounts:
             raise ValueError(f"Unknown account: {account_filter}")
 
+    # 初始化进度
+    _init_progress([a.name for a in accounts])
+
     for account in accounts:
         result = AccountRunResult(account_name=account.name)
+        _update_progress(account.name, "running")
+
         fetcher: MailFetcher = (
             fetcher_factory(account)
             if fetcher_factory
@@ -58,6 +143,7 @@ def run_job(
                     max_uid,
                 )
                 fetcher.disconnect()
+                _update_progress(account.name, "done")
                 summary.results.append(result)
                 continue
 
@@ -97,13 +183,23 @@ def run_job(
 
             store.set_watermark_uid(account.name, max_seen_uid)
             fetcher.disconnect()
+            _update_progress(account.name, "done",
+                             scanned=result.scanned,
+                             matched=result.matched,
+                             downloaded=result.downloaded)
         except Exception as exc:
             logger.exception("%s: account run failed", account.name)
             result.error = str(exc)
+            _update_progress(account.name, "error",
+                             scanned=result.scanned,
+                             matched=result.matched,
+                             downloaded=result.downloaded,
+                             error=str(exc))
             try:
                 fetcher.disconnect()
             except Exception:
                 pass
         summary.results.append(result)
 
+    _clear_progress()
     return summary
